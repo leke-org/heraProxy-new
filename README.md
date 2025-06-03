@@ -1,7 +1,7 @@
-# ipv4_proxy 应用
+# hera_proxy 应用
 ## 生产环境
 ```shell
-go build   -o bin/ipV4Proxy.exe  
+go build   -o bin/heraProxy.exe  
 ```
  
 
