@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 	"proxy_server/common"
 	"proxy_server/log"
+	"sync"
 )
 
 const AddUserDataLuaScript = `
@@ -25,14 +26,25 @@ redis.call('SADD', setKey, unpack(setMembers))
 return 1
 `
 
-var AddUserDataLuaScriptShaCode string
+// var AddUserDataLuaScriptShaCode string
 
-func init() {
+// func init() {
+// 	// 加载 Lua 脚本
+// 	script := redis.NewScript(AddUserDataLuaScript)
+// 	sha, err := script.Load(context.Background(), common.GetRedisDB()).Result()
+// 	if err != nil {
+// 		log.Panic("[lua] 加载AddUserDataLuaScript失败", zap.Error(err))
+// 	}
+// 	AddUserDataLuaScriptShaCode = sha
+// }
+
+
+var AddUserDataLuaScriptShaCode = sync. OnceValue[string](func()string{
 	// 加载 Lua 脚本
 	script := redis.NewScript(AddUserDataLuaScript)
 	sha, err := script.Load(context.Background(), common.GetRedisDB()).Result()
 	if err != nil {
 		log.Panic("[lua] 加载AddUserDataLuaScript失败", zap.Error(err))
 	}
-	AddUserDataLuaScriptShaCode = sha
-}
+	return sha
+})  

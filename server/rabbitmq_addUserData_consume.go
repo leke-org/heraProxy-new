@@ -105,7 +105,7 @@ func (m *manager) runRabbitmqAddUserDataQueueConsumeAction(ctx context.Context, 
 	stringKey := fmt.Sprintf("%s_%s", REDIS_AUTH_USERDATA, info.Username)
 	setKey := fmt.Sprintf("%s_%s", REDIS_USER_IPSET, info.Username)
 
-	if _, err := common.GetRedisDB().EvalSha(context.Background(), lua.AddUserDataLuaScriptShaCode, []string{stringKey, setKey}, argv...).Result(); err != nil {
+	if _, err := common.GetRedisDB().EvalSha(context.Background(), lua.AddUserDataLuaScriptShaCode(), []string{stringKey, setKey}, argv...).Result(); err != nil {
 		log.Error("[rabbitmq_consume] rabbitmq AddUserData 执行lua脚本失败", zap.Error(err))
 		d.Nack(false, true)
 		return
