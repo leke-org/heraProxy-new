@@ -13,6 +13,12 @@ import (
 )
 
 func (m *manager) handlerTcpConn(ctx context.Context, conn net.Conn) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error("[tcp_conn_handler] panic!", zap.Any("err", err))
+		}
+	}()
+
 	buffer := m.bytePool.Get().([]byte)
 
 	n, err := conn.Read(buffer)
@@ -42,4 +48,14 @@ func (m *manager) handlerTcpConn(ctx context.Context, conn net.Conn) {
 		m.httpTcpConn(ctx, conn, req)
 		return
 	}
+}
+
+func (m *manager) handleShadowSocks(ctx context.Context, conn net.Conn) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error("[shadowSocks_handler] panic!", zap.Any("err", err))
+		}
+	}()
+	m.runShadowSocks(ctx, conn)
+	return
 }

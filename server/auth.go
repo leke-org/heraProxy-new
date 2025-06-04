@@ -67,3 +67,14 @@ func (m *manager) Valid(ctx context.Context, username, password, ip string) (aut
 
 	return authInfo, nil
 }
+
+func (m *manager) ValidShadowSocks(ipAddr string) (password string, resErr error) {
+	storeKey := fmt.Sprint(ipAddr, REDIS_SHADOWSOCKS)
+	pwd, err := common.GetRedisDB().Get(context.Background(), storeKey).Result()
+	if err != nil {
+		resErr = err
+	} else {
+		password = pwd
+	}
+	return
+}

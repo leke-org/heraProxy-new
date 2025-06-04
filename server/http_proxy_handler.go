@@ -158,6 +158,7 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 		close(done)
 		netConn.Close()
 		netTarget.Close()
+		wg.Wait()
 
 		domain := domainPointer.Load()
 		if domain != nil && *domain != "" {
@@ -171,7 +172,6 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 			}
 		}
 
-		wg.Wait()
 	}()
 
 	///域名为空，并且使用CONNECT

@@ -16,21 +16,26 @@ import (
 )
 
 type NacosConfig struct {
+	Blacklist     []string
 	LimitedReader struct {
 		ReadRate  int
 		ReadBurst int
 	}
-	OneIpMaxConn int
+	OneIpMaxConn           int
+	AlarmOneIPMaxThreshold int
+	DialFailTracker        struct {
+		WhiteList []string
+	}
 }
 
-func (m *manager) initNacosConf() {
+func (m *manager) initNacosConf(groupName string) {
 	m.viperClient = viper.New()
 	// 配置 Viper for Nacos 的远程仓库参数
 	nacos_remote.SetOptions(&nacos_remote.Option{
 		Url:         config.GetConf().Nacos.Url,                                                                                     // nacos server 多地址需要地址用;号隔开，如 Url: "loc1;loc2;loc3"
 		Port:        uint64(config.GetConf().Nacos.Port),                                                                            // nacos server端口号
 		NamespaceId: config.GetConf().Nacos.NamespaceId,                                                                             // nacos namespace
-		GroupName:   config.GetConf().Nacos.GroupName,                                                                               // nacos group
+		GroupName:   groupName,                                                                                                      // nacos group
 		Config:      nacos_remote.Config{DataId: config.GetConf().Nacos.LocalIP},                                                    // nacos DataID
 		Auth:        &nacos_remote.Auth{Enable: true, User: config.GetConf().Nacos.User, Password: config.GetConf().Nacos.Password}, // 如果需要验证登录,需要此参数
 	})

@@ -12,17 +12,40 @@ import (
 	"proxy_server/log"
 )
 
-func (m *manager) initTcpListener() {
+func (m *manager) initIpv4TcpListener() {
 	conf := config.GetConf()
 
 	m.tcpListener = map[string]net.Listener{}
-	for _, v := range conf.TcpListenerAddress {
+	for _, v := range conf.Ipv4TcpListenerAddress {
 		listener, err := net.Listen("tcp", v)
 		if err != nil {
 			log.Panic("[tcp_server] 初始化tcp监听服务失败", zap.Error(err))
 		}
 		m.tcpListener[v] = listener
 	}
+}
+
+func (m *manager) initIpv6TcpListener() {
+	conf := config.GetConf()
+
+	m.tcpListener = map[string]net.Listener{}
+	for _, v := range conf.Ipv6TcpListenerAddress {
+		listener, err := net.Listen("tcp", v)
+		if err != nil {
+			log.Panic("[tcp_server] 初始化tcp监听服务失败", zap.Error(err))
+		}
+		m.tcpListener[v] = listener
+	}
+}
+
+func (m *manager) initShadowSocksListener() {
+	conf := config.GetConf()
+
+	listener, err := net.Listen("tcp", conf.ShadowSocksAddress)
+	if err != nil {
+		log.Panic("[tcp_server] 初始化shadowSocks监听服务失败", zap.Error(err))
+	}
+	m.shadowSocksListener = listener
 }
 
 func (m *manager) tcpAccept(ctx context.Context) {
@@ -69,6 +92,43 @@ func (m *manager) tcpListenerAccept(ctx context.Context, tcpListener net.Listene
 			go func() {
 				defer close(done)
 				m.handlerTcpConn(ctx, conn)
+			}()
+
+			select {
+			case <-ctx.Done():
+			case <-done:
+			}
+		}()
+
+	}
+}
+
+func (m *manager) shadowSocksListenerAccept(ctx context.Context) {
+	addr := m.shadowSocksListener.Addr()
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
+	log.Info("[shadowSocks_server]  开启shadowSocks监听服务", zap.Any("addr", addr.String()))
+	for m.isRun.Load() {
+		// 接受客户端的连接
+		conn, err := m.shadowSocksListener.Accept()
+		if err != nil {
+			// 若接受连接出错，记录错误信息并继续等待下一个连接
+			log.Error("[shadowSocks_server]  shadowSocks监听服务Accept", zap.Error(err), zap.Any("addr", addr.String()))
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			done := make(chan struct{})
+			defer func() {
+				conn.Close()
+				for range done {
+				}
+			}()
+
+			go func() {
+				defer close(done)
+				m.handleShadowSocks(ctx, conn)
 			}()
 
 			select {

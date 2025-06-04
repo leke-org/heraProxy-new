@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"proxy_server/config"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -19,7 +20,7 @@ import (
 	"proxy_server/utils/taskConsumerManager"
 )
 
-const AcceptAmount = 8
+const AcceptAmount = 2
 
 // 使用 sync.OnceValue 确保 manager 只被初始化一次（线程安全）
 var newManager = sync.OnceValue(func() *manager {
@@ -44,6 +45,7 @@ type manager struct {
 	protobuf.UnimplementedAuthServer
 	tcm                            *taskConsumerManager.Manager // 任务调度管理器
 	tcpListener                    map[string]net.Listener
+	shadowSocksListener            net.Listener
 	grpcServer                     *grpc.Server
 	grpcListener                   net.Listener
 	isRun                          atomic.Bool
@@ -60,11 +62,29 @@ type manager struct {
 	nacosRespChan                  <-chan bool
 }
 
-// Start 启动代理服务的各个组件
-func (m *manager) Start() error {
+// StartIpv4 启动ipv4代理服务的各个组件
+func (m *manager) StartIpv4() error {
 	m.nacosConfig = &NacosConfig{}
-	m.initNacosConf()
-	m.initTcpListener()
+	m.initNacosConf(config.GetConf().Nacos.Ipv4GroupName)
+	m.initIpv4TcpListener()
+	m.initRabbitmqSendQueueSlices()
+
+	m.tcm.AddTask(AcceptAmount, m.tcpAccept)
+	if config.GetConf().OpenShadowSocks {
+		m.initShadowSocksListener()
+		m.tcm.AddTask(1, m.shadowSocksListenerAccept)
+	}
+	m.tcm.AddTask(1, m.runNacosConfServer)
+	m.tcm.AddTask(1, m.runRabbitmqConsume)
+
+	return nil
+}
+
+// StartIpv6 启动ipv6代理服务的各个组件
+func (m *manager) StartIpv6() error {
+	m.nacosConfig = &NacosConfig{}
+	m.initNacosConf(config.GetConf().Nacos.Ipv6GroupName)
+	m.initIpv6TcpListener()
 	m.initRabbitmqSendQueueSlices()
 
 	m.tcm.AddTask(AcceptAmount, m.tcpAccept)

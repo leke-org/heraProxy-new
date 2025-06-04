@@ -145,7 +145,7 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 		close(done)
 		netConn.Close()
 		netTarget.Close()
-		domainPointer.Load()
+		wg.Wait()
 
 		domain := domainPointer.Load()
 		if domain != nil && *domain != "" {
@@ -159,7 +159,6 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 			}
 		}
 
-		wg.Wait()
 	}()
 
 	///域名为空，并且使用CONNECT

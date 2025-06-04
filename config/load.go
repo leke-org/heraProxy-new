@@ -1,9 +1,9 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"github.com/fsnotify/fsnotify"
+	"github.com/spf13/viper"
 	"sync/atomic"
 )
 
@@ -14,16 +14,28 @@ func GetConf() *confData {
 }
 
 func Load(path string) {
-	data, err := ioutil.ReadFile(path)
+	v := viper.New()
+	v.SetConfigFile(path)
+	v.SetConfigType("yaml")
+	err := v.ReadInConfig()
 	if err != nil {
-		panic(fmt.Errorf("加载配置文件失败 config file: %s \n", err))
+		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+	}
+	v.WatchConfig()
+
+	v.OnConfigChange(func(e fsnotify.Event) {
+		fmt.Println("config file changed:", e.Name)
+		var confDataT confData
+		if err = v.Unmarshal(&confDataT); err != nil {
+			fmt.Println(err)
+		}
+		confDataInstancePointer.Store(&confDataT)
+	})
+
+	var confDataT confData
+	if err = v.Unmarshal(&confDataT); err != nil {
+		fmt.Println(err)
 	}
 
-	// 解析 JSON 数据
-	var confDataT confData
-	err = json.Unmarshal(data, &confDataT)
-	if err != nil {
-		panic(fmt.Errorf("解释配置文件失败 config file: %s \n", err))
-	}
 	confDataInstancePointer.Store(&confDataT)
 }
