@@ -2,10 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"time"
-
 	"github.com/streadway/amqp"
 	"go.uber.org/zap" // 高性能日志库
 	"google.golang.org/protobuf/proto"
@@ -13,7 +10,6 @@ import (
 	"proxy_server/config"
 	"proxy_server/log"
 	"proxy_server/protobuf"
-	"proxy_server/server/lua"
 )
 
 // /设置用户信息
@@ -80,36 +76,44 @@ func (m *manager) runRabbitmqSetUserDataQueueConsumeAction(ctx context.Context, 
 		log.Error("[rabbitmq_consume] rabbitmq SetUserData proto.Unmarshal 错误", zap.Error(err))
 		return
 	}
-	setMembers := []string{}
 
-	for ip := range info.Ips {
-		setMembers = append(setMembers, ip)
-	}
-	info.Ips = nil
-	info.UpdateUnix = time.Now().Unix()
-
-	data, err := json.Marshal(info)
+	err = common.GetRedisDB().Set(ctx, info.Username+":Auth", d.Body, 0).Err()
 	if err != nil {
 		d.Nack(false, false)
-		log.Error("[rabbitmq_consume] rabbitmq SetUserData json.Marshal 错误", zap.Error(err))
+		log.Error("[rabbitmq_consume] Redis set auth key err", zap.Error(err))
 		return
 	}
 
-	// 组合 ARGV 参数
-	argv := []interface{}{string(data)}
-	for _, member := range setMembers {
-		argv = append(argv, member)
-	}
-
-	// 定义要操作的键和元素
-	stringKey := fmt.Sprintf("%s_%s", REDIS_AUTH_USERDATA, info.Username)
-	setKey := fmt.Sprintf("%s_%s", REDIS_USER_IPSET, info.Username)
-
-	if _, err := common.GetRedisDB().EvalSha(context.Background(), lua.SetUserDataLuaScriptShaCode(), []string{stringKey, setKey}, argv...).Result(); err != nil {
-		log.Error("[rabbitmq_consume] rabbitmq SetUserData 执行lua脚本失败", zap.Error(err))
-		d.Nack(false, true)
-		return
-	}
+	//setMembers := []string{}
+	//
+	//for ip := range info.Ips {
+	//	setMembers = append(setMembers, ip)
+	//}
+	//info.Ips = nil
+	//info.UpdateUnix = time.Now().Unix()
+	//
+	//data, err := json.Marshal(info)
+	//if err != nil {
+	//	d.Nack(false, false)
+	//	log.Error("[rabbitmq_consume] rabbitmq SetUserData json.Marshal 错误", zap.Error(err))
+	//	return
+	//}
+	//
+	//// 组合 ARGV 参数
+	//argv := []interface{}{string(data)}
+	//for _, member := range setMembers {
+	//	argv = append(argv, member)
+	//}
+	//
+	//// 定义要操作的键和元素
+	//stringKey := fmt.Sprintf("%s_%s", REDIS_AUTH_USERDATA, info.Username)
+	//setKey := fmt.Sprintf("%s_%s", REDIS_USER_IPSET, info.Username)
+	//
+	//if _, err := common.GetRedisDB().EvalSha(context.Background(), lua.SetUserDataLuaScriptShaCode(), []string{stringKey, setKey}, argv...).Result(); err != nil {
+	//	log.Error("[rabbitmq_consume] rabbitmq SetUserData 执行lua脚本失败", zap.Error(err))
+	//	d.Nack(false, true)
+	//	return
+	//}
 	d.Ack(false)
 	log.Info("[rabbitmq_consume] rabbitmq SetUserData 成功", zap.Any("user", info.Username))
 }

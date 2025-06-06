@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net"
 	"proxy_server/config"
+	"proxy_server/utils/tracker"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -25,9 +27,10 @@ const AcceptAmount = 2
 // 使用 sync.OnceValue 确保 manager 只被初始化一次（线程安全）
 var newManager = sync.OnceValue(func() *manager {
 	m := &manager{
-		tcm:            taskConsumerManager.New(), // 任务消费者管理器
-		ipConnCountMap: cmap.New[*IpConnCountMapData](),
-		userCtxMap:     cmap.New[*connContext](),
+		tcm:             taskConsumerManager.New(), // 任务消费者管理器
+		ipConnCountMap:  cmap.New[*IpConnCountMapData](),
+		userCtxMap:      cmap.New[*connContext](),
+		dialFailTracker: tracker.NewDialFailTracker(),
 	}
 	m.isRun.Store(true)
 	m.bytePool = sync.Pool{
@@ -48,6 +51,7 @@ type manager struct {
 	shadowSocksListener            net.Listener
 	grpcServer                     *grpc.Server
 	grpcListener                   net.Listener
+	auth                           Auth
 	isRun                          atomic.Bool
 	bytePool                       sync.Pool
 	ipConnCountMap                 cmap.ConcurrentMap[string, *IpConnCountMapData]
@@ -60,15 +64,16 @@ type manager struct {
 	rabbitmqSendQueueSlicesCounter atomic.Uint64
 	rabbitmqSendQueueDone          chan struct{}
 	nacosRespChan                  <-chan bool
+	dialFailTracker                *tracker.DialFailTracker
 }
 
 // StartIpv4 启动ipv4代理服务的各个组件
 func (m *manager) StartIpv4() error {
 	m.nacosConfig = &NacosConfig{}
+	m.auth = NewIpv4Auth()
 	m.initNacosConf(config.GetConf().Nacos.Ipv4GroupName)
 	m.initIpv4TcpListener()
 	m.initRabbitmqSendQueueSlices()
-
 	m.tcm.AddTask(AcceptAmount, m.tcpAccept)
 	if config.GetConf().OpenShadowSocks {
 		m.initShadowSocksListener()
@@ -83,14 +88,14 @@ func (m *manager) StartIpv4() error {
 // StartIpv6 启动ipv6代理服务的各个组件
 func (m *manager) StartIpv6() error {
 	m.nacosConfig = &NacosConfig{}
+	m.auth = NewIpv6Auth()
 	m.initNacosConf(config.GetConf().Nacos.Ipv6GroupName)
 	m.initIpv6TcpListener()
 	m.initRabbitmqSendQueueSlices()
-
 	m.tcm.AddTask(AcceptAmount, m.tcpAccept)
 	// m.tcm.AddTask(1, m.runGrpcServer)
 	m.tcm.AddTask(1, m.runNacosConfServer)
-	m.tcm.AddTask(1, m.runRabbitmqConsume)
+	m.tcm.AddTask(1, m.runRabbitmqConsumeIpv6)
 
 	return nil
 }
@@ -215,4 +220,14 @@ func (m *manager) IsInBlacklist(d string) (string, bool) {
 	}
 
 	return "", false
+}
+
+func (m *manager) IpAndTargetIsInBlacklist(ipAndTarget string) bool {
+	if slices.Contains(m.getNacosConf().DialFailTracker.WhiteList, ipAndTarget) {
+		return false
+	}
+	if m.dialFailTracker.IsBlacklisted(ipAndTarget) {
+		return true
+	}
+	return false
 }

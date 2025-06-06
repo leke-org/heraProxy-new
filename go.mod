@@ -5,6 +5,7 @@ go 1.23.1
 require (
 	github.com/coocood/freecache v1.2.4
 	github.com/fsnotify/fsnotify v1.8.0
+	github.com/jellydator/ttlcache/v3 v3.3.0
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/redis/go-redis/v9 v9.7.3
@@ -47,6 +48,7 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/toolkits/concurrent v0.0.0-20150624120057-a4371d70e3e3 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
+	golang.org/x/sync v0.13.0 // indirect
 	golang.org/x/sys v0.32.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241223144023-3abc09e42ca8 // indirect

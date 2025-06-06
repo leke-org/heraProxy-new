@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -33,6 +34,21 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 		return
 	}
 
+	proxyServerConn := conn.LocalAddr().(*net.TCPAddr)
+	proxyServerIpStr := proxyServerConn.IP.String()
+	targetHost := req.Host
+	ipAndTarget := fmt.Sprintf("%s-%s", proxyServerIpStr, targetHost)
+
+	in := m.IpAndTargetIsInBlacklist(ipAndTarget)
+	if in {
+		msg := fmt.Sprintf("ip[%s]Andserver:[%s] in black list,unable to access!", proxyServerIpStr, targetHost)
+		log.Error("[tcp_conn_handler] " + msg)
+		if _, err = conn.Write([]byte("HTTP/1.1 503 Service Unavailable\r\n\r\n")); err != nil {
+			return
+		}
+		return
+	}
+
 	userPasswdPair := strings.Split(string(authData), ":")
 	if len(userPasswdPair) != 2 {
 		log.Error("[tcp_conn_handler] http代理账号密码错误", zap.Any("authData", authData))
@@ -42,11 +58,9 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 		return
 	}
 
-	proxyServerConn := conn.LocalAddr().(*net.TCPAddr)
 	proxyUserName := userPasswdPair[0]
 	proxyPassword := userPasswdPair[1]
-	proxyServerIpStr := proxyServerConn.IP.String()
-	if _, err := m.Valid(ctx, proxyUserName, proxyPassword, proxyServerIpStr); err != nil {
+	if _, err := m.auth.Valid(ctx, proxyUserName, proxyPassword, proxyServerIpStr); err != nil {
 		log.Error("[tcp_conn_handler] http代理鉴权失败", zap.Error(err))
 		if _, err = conn.Write([]byte("HTTP/1.1 407 Proxy Authorization Required\r\nProxy-Authenticate: Basic realm=\"Secure Proxys\"\r\n\r\n")); err != nil {
 			return
@@ -96,6 +110,11 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 	var target net.Conn
 	target, err = DialContext(ctx, "tcp", address, time.Second*10, proxyServerConn.IP, 0)
 	if err != nil {
+		var netErr net.Error
+		if errors.As(err, &netErr) && netErr.Timeout() {
+			m.dialFailTracker.RecordDialFailConnection(ipAndTarget)
+			log.Error("[tcp_conn_handler] tcp dial target timeout!", zap.Any("local_ip", proxyServerIpStr), zap.Any("target_addr", address), zap.Any("user", proxyUserName))
+		}
 		log.Error("[tcp_conn_handler] 创建目标连接失败", zap.Any("local_ip", proxyServerIpStr), zap.Any("target_addr", address), zap.Any("user", proxyUserName))
 		if _, err = conn.Write([]byte("HTTP/1.1 503 Service Unavailable\r\n\r\n")); err != nil {
 			return

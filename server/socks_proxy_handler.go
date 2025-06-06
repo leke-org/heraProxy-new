@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -23,7 +24,7 @@ import (
 
 func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 	// 读取账号密码
-	var user, pwd string
+	//var user, pwd string
 	user, pwd, err := socks5.GetUserPassword(conn)
 	if err != nil {
 		log.Error("[socks_proxy_handler] 读取账号密码错误", zap.Error(err))
@@ -37,7 +38,7 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 	proxyServerIpStr := proxyServerConn.IP.String()
 	proxyServerIpByte := proxyServerConn.IP.To4()
 
-	_, err = m.Valid(ctx, user, pwd, proxyServerIpStr)
+	_, err = m.auth.Valid(ctx, user, pwd, proxyServerIpStr)
 	if err != nil {
 		log.Error("[socks_proxy_handler] 鉴权失败", zap.Error(err), zap.Any("user", user), zap.Any("pwd", pwd), zap.Any("ip", proxyServerIpStr))
 		if _, err = conn.Write([]byte{socks5.UserAuthVersion, socks5.AuthFailure}); err != nil {
@@ -76,6 +77,17 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 		return
 	}
 
+	ipAndTarget := fmt.Sprintf("%s-%s", proxyServerIpStr, destAddr.String())
+	in := m.IpAndTargetIsInBlacklist(ipAndTarget)
+	if in {
+		msg := fmt.Sprintf("ip[%s]Andserver:[%s] in black list,unable to access!", proxyServerIpStr, destAddr.String())
+		log.Error("[socks_proxy_handler] " + msg)
+		if err = socks5.SendReply(conn, socks5.NetworkUnreachable, nil); err != nil {
+			return
+		}
+		return
+	}
+
 	domain := regexpDomain(destAddr.Address())
 	if domain != "" {
 		if black, in := m.IsInBlacklist(domain); in {
@@ -101,6 +113,11 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 			resp = socks5.ConnectionRefused
 		} else if strings.Contains(msg, "network is unreachable") {
 			resp = socks5.NetworkUnreachable
+		}
+		var netErr net.Error
+		if errors.As(err, &netErr) && netErr.Timeout() {
+			m.dialFailTracker.RecordDialFailConnection(ipAndTarget)
+			log.Error("[socks_proxy_handler] tcp dial target timeout!", zap.Any("local_ip", proxyServerIpStr), zap.Any("target_addr", destAddr.Address()), zap.Any("user", user))
 		}
 		if err = socks5.SendReply(conn, resp, nil); err != nil {
 			return

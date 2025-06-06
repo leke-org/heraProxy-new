@@ -3,8 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"strings"
-
 	"go.uber.org/zap" // 高性能日志库
 	"proxy_server/common"
 	"proxy_server/config"
@@ -78,30 +76,32 @@ func (m *manager) runRabbitmqDeleteUserDataQueueConsumeAction(ctx context.Contex
 		return
 	}
 
-	strKey := fmt.Sprintf("%s_%s", REDIS_AUTH_USERDATA, info.Username)
-	setKey := fmt.Sprintf("%s_%s", REDIS_USER_IPSET, info.Username)
+	common.GetRedisDB().Del(ctx, info.Username+":Auth")
 
-	// 要删除的键列表
-	keysToDelete := []string{strKey, setKey}
-
-	// 删除多个键
-	_, err = common.GetRedisDB().Del(context.Background(), keysToDelete...).Result()
-	if err != nil {
-		log.Error("[rabbitmq_consume] rabbitmq DeleteUserData 删除数据错误", zap.Error(err))
-		return
-	}
-
-	for v := range m.userCtxMap.Iter() {
-		keys := strings.Split(v.Key, ":")
-		if len(keys) > 0 {
-			// 判断是否包含username
-			if keys[0] == info.Username {
-				v, exist := m.userCtxMap.Pop(v.Key)
-				if exist && v != nil {
-					v.cancel()
-				}
-			}
-		}
-
-	}
+	//strKey := fmt.Sprintf("%s_%s", REDIS_AUTH_USERDATA, info.Username)
+	//setKey := fmt.Sprintf("%s_%s", REDIS_USER_IPSET, info.Username)
+	//
+	//// 要删除的键列表
+	//keysToDelete := []string{strKey, setKey}
+	//
+	//// 删除多个键
+	//_, err = common.GetRedisDB().Del(context.Background(), keysToDelete...).Result()
+	//if err != nil {
+	//	log.Error("[rabbitmq_consume] rabbitmq DeleteUserData 删除数据错误", zap.Error(err))
+	//	return
+	//}
+	//
+	//for v := range m.userCtxMap.Iter() {
+	//	keys := strings.Split(v.Key, ":")
+	//	if len(keys) > 0 {
+	//		// 判断是否包含username
+	//		if keys[0] == info.Username {
+	//			v, exist := m.userCtxMap.Pop(v.Key)
+	//			if exist && v != nil {
+	//				v.cancel()
+	//			}
+	//		}
+	//	}
+	//
+	//}
 }

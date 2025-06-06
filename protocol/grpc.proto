@@ -15,6 +15,13 @@ message AuthInfo{
   map<string,NullMessage> ips = 8;//ip数组
 }
 
+message Ipv6AuthInfo{
+  string username = 1;//账号
+  string password = 2;//密码
+  string ip = 3;//ip
+  bool banned = 4; // 是否被封禁
+}
+
 message DisconnectInfo{
   string username = 1;//账号
   repeated string ips=2;

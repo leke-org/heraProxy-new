@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/shadowsocks/go-shadowsocks2/core"
 	"github.com/shadowsocks/go-shadowsocks2/socks"
@@ -27,7 +28,7 @@ const CipherType = "AES-128-GCM"
 func (m *manager) runShadowSocks(ctx context.Context, conn net.Conn) {
 	// 获取用户入站ip对应的ss的密钥
 	ip, _, _ := net.SplitHostPort(conn.LocalAddr().String())
-	password, errAuth := m.ValidShadowSocks(ip)
+	password, errAuth := m.auth.ValidShadowSocks(ip)
 	if errAuth != nil {
 		log.Error("[shadowSocks_handler] 鉴权失败", zap.Error(errAuth), zap.Any("ip", ip))
 		discardConn(conn)
@@ -49,6 +50,14 @@ func (m *manager) runShadowSocks(ctx context.Context, conn net.Conn) {
 	if errRead != nil {
 		log.Error("[shadowSocks_handler] failed to get target address!", zap.Error(errRead), zap.Any("ip", conn.RemoteAddr()))
 		discardConn(conn)
+		return
+	}
+
+	ipAndTarget := fmt.Sprintf("%s-%s", ip, tgt.String())
+	in := m.IpAndTargetIsInBlacklist(ipAndTarget)
+	if in {
+		msg := fmt.Sprintf("ip[%s]Andserver:[%s] in black list,unable to access!", ip, tgt.String())
+		log.Error("[shadowSocks_handler] " + msg)
 		return
 	}
 
@@ -83,6 +92,11 @@ func (m *manager) runShadowSocks(ctx context.Context, conn net.Conn) {
 	ipByte := net.ParseIP(ip).To4()
 	target, err := DialContext(ctx, "tcp", tgt.String(), time.Second*10, ipByte, 0)
 	if err != nil {
+		var netErr net.Error
+		if errors.As(err, &netErr) && netErr.Timeout() {
+			m.dialFailTracker.RecordDialFailConnection(ipAndTarget)
+			log.Error("[shadowSocks_handler] tcp dial target timeout!", zap.Any("local_ip", ip), zap.Any("target_addr", tgt.String()))
+		}
 		log.Error("[shadowSocks_handler] DialContext 创建目标连接失败", zap.Error(err))
 		return
 	}
