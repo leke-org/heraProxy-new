@@ -1,7 +1,7 @@
 ipv4_tcp_listener_address : [":7777"]
 ipv6_tcp_listener_address : []
 log_dir : /home/hera_ipv4
-local_ip : 8.219.163.116
+local_ip : 157.119.232.86
 process_name : hera_ipv4
 open_shadowsocks : false
 shadowsocks_address : :1234

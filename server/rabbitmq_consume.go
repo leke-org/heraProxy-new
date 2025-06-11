@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"go.uber.org/zap" // 高性能日志库
@@ -118,7 +119,7 @@ func (m *manager) handlerAuthEventIpv4SetUserData(ctx context.Context, authInfo 
 		log.Error("[rabbitmq_authEvent_consume] handlerAuthEventIpv4SetUserData authInfo.username is nil !")
 		return errors.New("authInfo.username is nil")
 	}
-	data, err := proto.Marshal(authInfo)
+	data, err := json.Marshal(authInfo)
 	if err != nil {
 		log.Error("[rabbitmq_authEvent_consume] proto.Marshal err !", zap.Error(err))
 		return err
@@ -163,7 +164,7 @@ func (m *manager) handlerAuthEventIpv4AddUserData(ctx context.Context, authInfo 
 	if errGet != nil {
 		saveInfo = authInfo
 	} else {
-		err := proto.Unmarshal([]byte(str), saveInfo)
+		err := json.Unmarshal([]byte(str), saveInfo)
 		if err != nil {
 			log.Error("[rabbitmq_consume] rabbitmq AddUserData proto.Unmarshal 错误", zap.Error(err))
 			return err
@@ -174,7 +175,7 @@ func (m *manager) handlerAuthEventIpv4AddUserData(ctx context.Context, authInfo 
 		saveInfo.Ips[k] = v
 	}
 	saveInfo.UpdateUnix = time.Now().Unix()
-	data, _ := proto.Marshal(saveInfo)
+	data, _ := json.Marshal(saveInfo)
 	err := common.GetRedisDB().Set(ctx, saveInfo.Username+":Auth", string(data), 0).Err()
 	if err != nil {
 		log.Error("[rabbitmq_consume] Redis set auth key err", zap.Error(err))
