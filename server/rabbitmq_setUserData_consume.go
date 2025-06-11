@@ -69,8 +69,8 @@ func (m *manager) runRabbitmqSetUserDataQueueConsume(ctx context.Context, conn *
 }
 
 func (m *manager) runRabbitmqSetUserDataQueueConsumeAction(ctx context.Context, d *amqp.Delivery) {
-	info := &protobuf.AuthInfo{}
-	err := proto.Unmarshal(d.Body, info)
+	info := protobuf.AuthInfo{}
+	err := proto.Unmarshal(d.Body, &info)
 	if err != nil {
 		d.Nack(false, false)
 		log.Error("[rabbitmq_consume] rabbitmq SetUserData proto.Unmarshal 错误", zap.Error(err))
@@ -114,6 +114,81 @@ func (m *manager) runRabbitmqSetUserDataQueueConsumeAction(ctx context.Context, 
 	//	d.Nack(false, true)
 	//	return
 	//}
+	d.Ack(false)
+	log.Info("[rabbitmq_consume] rabbitmq SetUserData 成功", zap.Any("user", info.Username))
+}
+
+// /设置用户信息
+func (m *manager) runRabbitmqSetUserIpv6DataQueueConsume(ctx context.Context, conn *amqp.Connection) {
+	ch, err := conn.Channel()
+	if err != nil {
+		log.Error("[rabbitmq_consume] rabbitmq SetUserIpv6Data conn.Channel 错误", zap.Error(err))
+		return
+	}
+	defer ch.Close()
+
+	qName := fmt.Sprintf("SetUserIpv6Data_%s_%s", config.GetConf().LocalIp, config.GetConf().ProcessName)
+	// 声明一个队列
+	if _, err := ch.QueueDeclare(
+		qName, // 队列名称
+		true,  // 是否持久化
+		false, // 是否自动删除
+		false, // 是否排他
+		false, // 是否等待服务器响应
+		nil,   // 额外参数
+	); err != nil {
+		log.Error("[rabbitmq_consume] rabbitmq SetUserIpv6Data ch.QueueDeclare 错误", zap.Error(err))
+		return
+	}
+
+	// 从队列中消费消息
+	msgs, err := ch.Consume(
+		qName, // 队列名称
+		"",    // 消费者名称
+		false, // 是否自动确认
+		false, // 是否排他
+		false, // 是否为本地队列
+		false, // 是否等待服务器响应
+		nil,   // 额外参数
+	)
+	if err != nil {
+		log.Error("[rabbitmq_consume] rabbitmq SetUserIpv6Data ch.Consume 错误", zap.Error(err))
+		return
+	}
+
+	closeChan := ch.NotifyClose(make(chan *amqp.Error, 1))
+
+	for {
+		select {
+		case d, ok := <-msgs:
+			if ok {
+				m.runRabbitmqSetUserIpv6DataQueueConsumeAction(ctx, &d)
+			}
+		case <-ctx.Done():
+			return
+		case <-closeChan:
+			log.Error("[rabbitmq_consume] rabbitmq SetUserIpv6Data 信道关闭")
+			return
+
+		}
+	}
+}
+
+func (m *manager) runRabbitmqSetUserIpv6DataQueueConsumeAction(ctx context.Context, d *amqp.Delivery) {
+	info := &protobuf.Ipv6AuthInfo{}
+	err := proto.Unmarshal(d.Body, info)
+	if err != nil {
+		d.Nack(false, false)
+		log.Error("[rabbitmq_consume] rabbitmq SetUserIpv6Data proto.Unmarshal 错误", zap.Error(err))
+		return
+	}
+
+	err = common.GetRedisDB().Set(ctx, info.Username+":Auth", d.Body, 0).Err()
+	if err != nil {
+		d.Nack(false, false)
+		log.Error("[rabbitmq_consume] Redis set Ipv6Auth key err", zap.Error(err))
+		return
+	}
 	d.Ack(false)
 	log.Info("[rabbitmq_consume] rabbitmq SetUserData 成功", zap.Any("user", info.Username))
 }

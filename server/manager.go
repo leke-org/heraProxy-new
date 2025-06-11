@@ -95,7 +95,7 @@ func (m *manager) StartIpv6() error {
 	m.tcm.AddTask(AcceptAmount, m.tcpAccept)
 	// m.tcm.AddTask(1, m.runGrpcServer)
 	m.tcm.AddTask(1, m.runNacosConfServer)
-	m.tcm.AddTask(1, m.runRabbitmqConsumeIpv6)
+	m.tcm.AddTask(1, m.runRabbitmqConsume)
 
 	return nil
 }

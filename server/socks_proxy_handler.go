@@ -96,8 +96,8 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 			if err = socks5.SendReply(conn, socks5.HostUnreachable, nil); err != nil {
 				return
 			}
+			return
 		}
-		return
 	}
 
 	var domainPointer atomic.Pointer[string]
@@ -142,7 +142,8 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 		return
 	}
 
-	key := fmt.Sprintf("%s:%s", user, proxyServerIpStr)
+	//key := fmt.Sprintf("%s:%s", user, proxyServerIpStr)
+	key := user
 	connCtx := m.addUserConnection(key)
 	action := connCtx.a
 	defer m.deleteUserConnection(key, connCtx)

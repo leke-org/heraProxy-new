@@ -105,3 +105,68 @@ func (m *manager) runRabbitmqDeleteUserDataQueueConsumeAction(ctx context.Contex
 	//
 	//}
 }
+
+// 删除用户消息  // DEL
+func (m *manager) runRabbitmqDeleteUserIpv6DataQueueConsume(ctx context.Context, conn *amqp.Connection) {
+	ch, err := conn.Channel()
+	if err != nil {
+		log.Error("[rabbitmq_consume] rabbitmq DeleteUserIpv6Data conn.Channel 错误", zap.Error(err))
+		return
+	}
+	defer ch.Close()
+
+	qName := fmt.Sprintf("DeleteUserIpv6Data_%s_%s", config.GetConf().LocalIp, config.GetConf().ProcessName)
+	// 声明一个队列
+	if _, err := ch.QueueDeclare(
+		qName, // 队列名称
+		true,  // 是否持久化
+		false, // 是否自动删除
+		false, // 是否排他
+		false, // 是否等待服务器响应
+		nil,   // 额外参数
+	); err != nil {
+		log.Error("[rabbitmq_consume] rabbitmq DeleteUserIpv6Data ch.QueueDeclare 错误", zap.Error(err))
+		return
+	}
+
+	// 从队列中消费消息
+	msgs, err := ch.Consume(
+		qName, // 队列名称
+		"",    // 消费者名称
+		true,  // 是否自动确认
+		false, // 是否排他
+		false, // 是否为本地队列
+		false, // 是否等待服务器响应
+		nil,   // 额外参数
+	)
+	if err != nil {
+		log.Error("[rabbitmq_consume] rabbitmq DeleteUserIpv6Data ch.Consume 错误", zap.Error(err))
+		return
+	}
+
+	closeChan := ch.NotifyClose(make(chan *amqp.Error, 1))
+	for {
+		select {
+		case d, ok := <-msgs:
+			if ok {
+				m.runRabbitmqDeleteUserIpv6DataQueueConsumeAction(ctx, d.Body)
+			}
+		case <-ctx.Done():
+			return
+		case <-closeChan:
+			log.Error("[rabbitmq_consume] rabbitmq DeleteUserIpv6Data 信道关闭")
+			return
+		}
+	}
+}
+
+func (m *manager) runRabbitmqDeleteUserIpv6DataQueueConsumeAction(ctx context.Context, body []byte) {
+	info := &protobuf.Ipv6AuthInfo{}
+	err := proto.Unmarshal(body, info)
+	if err != nil {
+		log.Error("[rabbitmq_consume] rabbitmq DeleteUserIpv6Data proto.Unmarshal 错误", zap.Error(err))
+		return
+	}
+
+	common.GetRedisDB().Del(ctx, info.Username+":Auth")
+}

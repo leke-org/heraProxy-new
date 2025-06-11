@@ -1,49 +1,49 @@
 syntax = "proto3";
 option go_package = "./protobuf";
 option java_package = "protobuf";
-
-message NullMessage {}
-
-message AuthInfo{
-  string username = 1;//账号
-  string password = 2;//密码
-  string proxy_username = 3;//代理账号
-  string proxy_password = 4;//代理密码
-  string s5_addr =5;//s5代理地址 ip:端口
-  string http_addr = 6;//http代理  ip:端口
-  int64 update_unix =7 ;
-  map<string,NullMessage> ips = 8;//ip数组
-}
-
-message Ipv6AuthInfo{
-  string username = 1;//账号
-  string password = 2;//密码
-  string ip = 3;//ip
-  bool banned = 4; // 是否被封禁
-}
-
-message DisconnectInfo{
-  string username = 1;//账号
-  repeated string ips=2;
-}
-
-//权限信息服务 中转服务器使用的
-service Auth  {
-  rpc SetUserData(AuthInfo) returns (NullMessage); ///设置账号信息
-  rpc DeleteUserData(AuthInfo) returns (NullMessage); ///删除账号信息
-  rpc GetUserData(AuthInfo) returns (AuthInfo); /// 账号信息
-  rpc AddUserData(AuthInfo) returns (NullMessage); //同一个账号添加ip数据
-  rpc Disconnect(DisconnectInfo) returns (NullMessage);
-}
-
 //
-service RemoteAuth  {
-  rpc GetUserData(AuthInfo) returns (AuthInfo); /// 账号信息
-}
-
-message BlackListAccessLog{
-  string  site = 1; // 网址
-  int32   account_type = 2; // 账号类型 0 动态 1 静态
-  string  account = 3; //账号
-  string  exit_ip = 4; // 出口ip
-}
+//message NullMessage {}
+//
+//message AuthInfo{
+//  string username = 1;//账号
+//  string password = 2;//密码
+//  string proxy_username = 3;//代理账号
+//  string proxy_password = 4;//代理密码
+//  string s5_addr =5;//s5代理地址 ip:端口
+//  string http_addr = 6;//http代理  ip:端口
+//  int64 update_unix =7 ;
+//  map<string,NullMessage> ips = 8;//ip数组
+//}
+//
+//message Ipv6AuthInfo{
+//  string username = 1;//账号
+//  string password = 2;//密码
+//  string ip = 3;//ip
+//  bool banned = 4; // 是否被封禁
+//}
+//
+//message DisconnectInfo{
+//  string username = 1;//账号
+//  repeated string ips=2;
+//}
+//
+////权限信息服务 中转服务器使用的
+//service Auth  {
+//  rpc SetUserData(AuthInfo) returns (NullMessage); ///设置账号信息
+//  rpc DeleteUserData(AuthInfo) returns (NullMessage); ///删除账号信息
+//  rpc GetUserData(AuthInfo) returns (AuthInfo); /// 账号信息
+//  rpc AddUserData(AuthInfo) returns (NullMessage); //同一个账号添加ip数据
+//  rpc Disconnect(DisconnectInfo) returns (NullMessage);
+//}
+//
+////
+//service RemoteAuth  {
+//  rpc GetUserData(AuthInfo) returns (AuthInfo); /// 账号信息
+//}
+//
+//message BlackListAccessLog{
+//  string  site = 1; // 网址
+//  int32   account_type = 2; // 账号类型 0 动态 1 静态
+//  string  account = 3; //账号
+//  string  exit_ip = 4; // 出口ip
+//}

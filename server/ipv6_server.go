@@ -1,5 +1,5 @@
-//go:build ipv6_server
-// +build ipv6_server
+//go:build ipv6
+// +build ipv6
 
 package server
 

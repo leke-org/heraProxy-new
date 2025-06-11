@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -85,7 +84,7 @@ func (m *manager) runRabbitmqAddUserDataQueueConsumeAction(ctx context.Context, 
 	if errGet != nil {
 		authInfo = info
 	} else {
-		err := json.Unmarshal([]byte(str), authInfo)
+		err := proto.Unmarshal([]byte(str), authInfo)
 		if err != nil {
 			d.Nack(false, false)
 			log.Error("[rabbitmq_consume] rabbitmq AddUserData proto.Unmarshal 错误", zap.Error(err))

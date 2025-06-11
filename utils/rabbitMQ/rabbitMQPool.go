@@ -538,9 +538,11 @@ func rDeclare(rconn *rConn, clientType int, channel *rChannel, exChangeName stri
 		}
 	}
 	newChannel := channel.ch
-	err := newChannel.ExchangeDeclare(exChangeName, exChangeType, false, false, false, false, nil)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("MQ注册交换机失败:%s", err))
+	if exChangeName != "" {
+		err := newChannel.ExchangeDeclare(exChangeName, exChangeType, false, false, false, false, nil)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("MQ注册交换机失败:%s", err))
+		}
 	}
 	if (clientType != RABBITMQ_TYPE_PUBLISH && exChangeType != EXCHANGE_TYPE_FANOUT) || (clientType == RABBITMQ_TYPE_CONSUME && (exChangeType == EXCHANGE_TYPE_FANOUT || exChangeType == EXCHANGE_TYPE_DIRECT)) {
 		argsQue := make(map[string]interface{})
@@ -556,9 +558,12 @@ func rDeclare(rconn *rConn, clientType int, channel *rChannel, exChangeName stri
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("MQ注册队列失败:%s", err))
 		}
-		err = newChannel.QueueBind(queue.Name, route, exChangeName, false, nil)
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("MQ绑定队列失败:%s", err))
+
+		if exChangeName != "" {
+			err = newChannel.QueueBind(queue.Name, route, exChangeName, false, nil)
+			if err != nil {
+				return nil, errors.New(fmt.Sprintf("MQ绑定队列失败:%s", err))
+			}
 		}
 	}
 	channel.ch = newChannel

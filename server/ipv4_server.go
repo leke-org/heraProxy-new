@@ -1,5 +1,5 @@
-//go:build ipv4_server
-// +build ipv4_server
+//go:build ipv4
+// +build ipv4
 
 package server
 

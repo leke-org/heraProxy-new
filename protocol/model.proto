@@ -1,9 +1,55 @@
 syntax = "proto3";
 option go_package = "./protobuf";
 
+message NullMessage {}
+
 message  AccessRecordsToInfluxDB{
   string user_name = 1;
   string domain = 2;
   string ip = 3;
   string proxy_type = 4;
+}
+
+message AuthEvent{
+  int32 type = 1;
+  oneof data {
+      AuthInfo auth_info = 2;
+      Ipv6AuthInfo ipv6_auth_info = 3;
+      Ipv6AuthInfoList ipv6_auth_info_list = 4;
+      DisconnectInfo disconnect_info = 5;
+  }
+}
+
+message AuthInfo{
+  string username = 1;//账号
+  string password = 2;//密码
+  string proxy_username = 3;//代理账号
+  string proxy_password = 4;//代理密码
+  string s5_addr =5;//s5代理地址 ip:端口
+  string http_addr = 6;//http代理  ip:端口
+  int64 update_unix =7 ;
+  map<string,NullMessage> ips = 8;//ip数组
+}
+
+message Ipv6AuthInfo{
+  string username = 1;//账号
+  string password = 2;//密码
+  string ip = 3;//ip
+  bool banned = 4; // 是否被封禁
+}
+
+message Ipv6AuthInfoList{
+  repeated Ipv6AuthInfo ipv6_auth_info_list = 1;
+}
+
+message DisconnectInfo{
+  string username = 1;//账号
+  repeated string ips=2;
+}
+
+message BlackListAccessLog{
+  string  site = 1; // 网址
+  int32   account_type = 2; // 账号类型 0 动态 1 静态
+  string  account = 3; //账号
+  string  exit_ip = 4; // 出口ip
 }

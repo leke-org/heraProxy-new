@@ -155,7 +155,8 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 
 	}
 
-	key := fmt.Sprintf("%s:%s", proxyUserName, proxyServerIpStr)
+	//key := fmt.Sprintf("%s:%s", proxyUserName, proxyServerIpStr)
+	key := proxyUserName
 	connCtx := m.addUserConnection(key)
 	action := connCtx.a
 	defer m.deleteUserConnection(key, connCtx)

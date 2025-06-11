@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/jellydator/ttlcache/v3"
@@ -54,7 +55,7 @@ func NewIpv6Auth() *Ipv6Auth {
 }
 
 func (a *Ipv4Auth) Valid(ctx context.Context, username, password, ip string) (exitIp string, resErr error) {
-	authInfo := &protobuf.AuthInfo{}
+	var authInfo *protobuf.AuthInfo
 	storeKey := fmt.Sprint(username, ":Auth")
 	value := a.cache.Get(storeKey)
 	isTouch := true
@@ -69,7 +70,7 @@ func (a *Ipv4Auth) Valid(ctx context.Context, username, password, ip string) (ex
 			resErr = err
 		} else {
 			authInfo = &protobuf.AuthInfo{}
-			err := proto.Unmarshal([]byte(str), authInfo)
+			err := json.Unmarshal([]byte(str), authInfo)
 			if err != nil {
 				resErr = err
 			}
@@ -82,7 +83,6 @@ func (a *Ipv4Auth) Valid(ctx context.Context, username, password, ip string) (ex
 	}
 
 	if authInfo != nil {
-
 		if authInfo.Username != username || authInfo.Password != password {
 			return "", errors.New("密码错误")
 		}
