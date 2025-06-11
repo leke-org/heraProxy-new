@@ -27,6 +27,8 @@ const (
 	AuthEventIpv6DeleteUserDataBatch = 8
 	AuthEventIpv6BanUserData         = 9
 	AuthEventIpv6BanUserDataBatch    = 10
+	AuthEventAddShadowSocksData      = 11
+	AuthEventDeleteShadowSocksData   = 12
 )
 
 func (m *manager) runRabbitmqConsume(ctx context.Context) {
@@ -105,6 +107,10 @@ func (m *manager) runRabbitmqAuthEventConsumeAction(ctx context.Context, body []
 		err = m.handlerAuthEventIpv6BanUserData(ctx, authEvent.GetIpv6AuthInfo())
 	case AuthEventIpv6BanUserDataBatch:
 		err = m.handlerAuthEventIpv6BanUserDataBatch(ctx, authEvent.GetIpv6AuthInfoList())
+	case AuthEventAddShadowSocksData:
+		err = m.handlerAuthEventAddShadowSocksData(ctx, authEvent.GetShadowSocksData())
+	case AuthEventDeleteShadowSocksData:
+		err = m.handlerAuthEventDeleteShadowSocksData(ctx, authEvent.GetShadowSocksData())
 	}
 	return err
 }
@@ -384,6 +390,44 @@ func (m *manager) handlerAuthEventIpv6BanUserDataBatch(ctx context.Context, ipv6
 	}
 
 	log.Info("[rabbitmq_consume] rabbitmq Ipv6DeleteUserData 成功", zap.Any("user", ipv6AuthInfoList.Ipv6AuthInfoList))
+	return nil
+}
+
+func (m *manager) handlerAuthEventAddShadowSocksData(ctx context.Context, data *protobuf.ShadowSocksData) error {
+	if data == nil {
+		log.Error("[rabbitmq_authEvent_consume] handlerAuthEventAddShadowSocksData data is nil !")
+		return errors.New("data is nil")
+	}
+	if data.Ip == "" {
+		log.Error("[rabbitmq_authEvent_consume] handlerAuthEventAddShadowSocksData data.ip is nil !")
+		return errors.New("data.ip is nil")
+	}
+
+	err := common.GetRedisDB().Set(ctx, data.Ip+":ShadowSocks", data.Password, 0).Err()
+	if err != nil {
+		log.Error("[rabbitmq_consume] Redis set auth key err", zap.Error(err))
+		return err
+	}
+	log.Info("[rabbitmq_consume] rabbitmq AddShadowSocksData 成功", zap.Any("ip", data.Ip))
+	return nil
+}
+
+func (m *manager) handlerAuthEventDeleteShadowSocksData(ctx context.Context, data *protobuf.ShadowSocksData) error {
+	if data == nil {
+		log.Error("[rabbitmq_authEvent_consume] handlerAuthEventDeleteShadowSocksData data is nil !")
+		return errors.New("data is nil")
+	}
+	if data.Ip == "" {
+		log.Error("[rabbitmq_authEvent_consume] handlerAuthEventDeleteShadowSocksData data.ip is nil !")
+		return errors.New("data.ip is nil")
+	}
+
+	err := common.GetRedisDB().Del(ctx, data.Ip+":ShadowSocks").Err()
+	if err != nil {
+		log.Error("[rabbitmq_consume] Redis Del auth key err", zap.Error(err))
+		return err
+	}
+	log.Info("[rabbitmq_consume] rabbitmq DeleteShadowSocksData 成功", zap.Any("ip", data.Ip))
 	return nil
 }
 

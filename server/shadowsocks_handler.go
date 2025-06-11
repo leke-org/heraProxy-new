@@ -115,7 +115,7 @@ func (m *manager) runShadowSocks(ctx context.Context, conn net.Conn) {
 	action := connCtx.a
 	defer m.deleteUserConnection(key, connCtx)
 
-	netConn := newConn(conn, CONN_WRITE_TIME, CONN_READ_TIME)
+	netConn := newConn(sConn, CONN_WRITE_TIME, CONN_READ_TIME)
 	netTarget := newConn(target, CONN_WRITE_TIME, CONN_READ_TIME)
 
 	byteChan := make(chan []byte, 1)

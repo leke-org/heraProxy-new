@@ -17,6 +17,7 @@ message AuthEvent{
       Ipv6AuthInfo ipv6_auth_info = 3;
       Ipv6AuthInfoList ipv6_auth_info_list = 4;
       DisconnectInfo disconnect_info = 5;
+      ShadowSocksData shadow_socks_data = 6;
   }
 }
 
@@ -45,6 +46,11 @@ message Ipv6AuthInfoList{
 message DisconnectInfo{
   string username = 1;//账号
   repeated string ips=2;
+}
+
+message ShadowSocksData{
+  string ip = 1;
+  string password = 2;
 }
 
 message BlackListAccessLog{
