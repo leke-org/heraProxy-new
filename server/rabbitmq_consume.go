@@ -30,7 +30,6 @@ const (
 )
 
 func (m *manager) runRabbitmqConsume(ctx context.Context) {
-	fmt.Println("the -------------------------------", config.GetConf().Rabbitmq.BlacklistExchange)
 	consumeBlacklist := &rabbitMQ.ConsumeReceive{ //黑名单消费者
 		ExchangeName: config.GetConf().Rabbitmq.BlacklistExchange, // 交换机名称
 		ExchangeType: rabbitMQ.EXCHANGE_TYPE_FANOUT,

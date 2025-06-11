@@ -83,8 +83,8 @@ func (m *manager) runShadowSocks(ctx context.Context, conn net.Conn) {
 		if black, in := m.IsInBlacklist(domain); in {
 			m.SendBlackListAccessLogMessageData(ip, ip, black, 1, "", ip)
 			log.Error("[shadowSocks_handler] 黑名单", zap.Any("domain", domain), zap.Any("local_ip", ip), zap.Any("target_addr", black))
+			return
 		}
-		return
 	}
 	var domainPointer atomic.Pointer[string]
 	domainPointer.Store(&domain)

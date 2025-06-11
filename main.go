@@ -60,7 +60,7 @@ func main() {
 	)
 
 	<-signalChan // 当接收到上述任意信号时继续执行
-	time.AfterFunc(5*time.Second, func() {
+	time.AfterFunc(3*time.Second, func() {
 		log.Info("程序强制关闭")
 		os.Exit(1)
 	})

@@ -547,6 +547,7 @@ func rDeclare(rconn *rConn, clientType int, channel *rChannel, exChangeName stri
 	if (clientType != RABBITMQ_TYPE_PUBLISH && exChangeType != EXCHANGE_TYPE_FANOUT) || (clientType == RABBITMQ_TYPE_CONSUME && (exChangeType == EXCHANGE_TYPE_FANOUT || exChangeType == EXCHANGE_TYPE_DIRECT)) {
 		argsQue := make(map[string]interface{})
 		if isDeadQueue {
+			argsQue["expires"] = 172800000
 			argsQue["x-dead-letter-exchange"] = oldExChangeName
 			oldRoute = strings.TrimSpace(oldRoute)
 			if len(oldRoute) > 0 {
