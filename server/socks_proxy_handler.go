@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	util "proxy_server/utils"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -37,8 +38,10 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 	proxyServerConn := conn.LocalAddr().(*net.TCPAddr)
 	proxyServerIpStr := proxyServerConn.IP.String()
 	proxyServerIpByte := proxyServerConn.IP.To4()
+	peerIp := conn.RemoteAddr().(*net.TCPAddr).IP.String()
+	exitIp := ""
 
-	_, err = m.auth.Valid(ctx, user, pwd, proxyServerIpStr)
+	exitIp, err = m.auth.Valid(ctx, user, pwd, proxyServerIpStr, peerIp)
 	if err != nil {
 		log.Error("[socks_proxy_handler] 鉴权失败", zap.Error(err), zap.Any("user", user), zap.Any("pwd", pwd), zap.Any("ip", proxyServerIpStr))
 		if _, err = conn.Write([]byte{socks5.UserAuthVersion, socks5.AuthFailure}); err != nil {
@@ -125,6 +128,14 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 		return
 	}
 	defer target.Close()
+
+	if util.IsIPv6(exitIp) {
+		//告诉客户端连接目标服务器成功
+		bind := socks5.AddrSpec{IP: net.ParseIP("0.0.0.0"), Port: 0}
+		if err = socks5.SendReply(conn, socks5.SuccessReply, &bind); err != nil {
+			return
+		}
+	}
 
 	clientAddr := conn.RemoteAddr().String()
 	log.Info("[socks_proxy_handler] 创建目标连接成功 ",

@@ -18,6 +18,7 @@ message AuthEvent{
       Ipv6AuthInfoList ipv6_auth_info_list = 4;
       DisconnectInfo disconnect_info = 5;
       ShadowSocksData shadow_socks_data = 6;
+    Ipv6GEOInfo ipv6_geo_info = 7;
   }
 }
 
@@ -51,6 +52,10 @@ message DisconnectInfo{
 message ShadowSocksData{
   string ip = 1;
   string password = 2;
+}
+
+message Ipv6GEOInfo{
+  map<string,string>city_seg = 1;
 }
 
 message BlackListAccessLog{

@@ -1,6 +1,9 @@
 package util
 
 import (
+	crand "crypto/rand"
+	"fmt"
+	"math/big"
 	"math/rand"
 	"net"
 	"strings"
@@ -49,4 +52,42 @@ func GetIPv4FromLink() string {
 		}
 	}
 	return ""
+}
+
+func RandomIPv6Address(cidr string) (string, error) {
+	cidr = cidr + "/52"
+	// 解析CIDR字符串
+	ip, ipnet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return "", fmt.Errorf("parsing CIDR failed: %v", err)
+	}
+
+	// 获取网络的掩码大小
+	mask := ipnet.Mask
+	ones, _ := mask.Size()
+
+	// 计算网络中有多少个可能的地址
+	max := new(big.Int)
+	max.Lsh(big.NewInt(1), uint(128-ones))
+
+	// 随机生成一个大数作为偏移量
+	randOffset, err := crand.Int(crand.Reader, max)
+	if err != nil {
+		return "", fmt.Errorf("generating random offset failed: %v", err)
+	}
+
+	// 将随机偏移量添加到基础地址中
+	ipBigInt := big.NewInt(0)
+	ipBigInt.SetBytes(ip.To16())
+	ipBigInt.Add(ipBigInt, randOffset)
+
+	// 将结果转换回net.IP类型
+	randomIP := net.IP(ipBigInt.Bytes())
+
+	return randomIP.String(), nil
+}
+
+func IsIPv6(ip string) bool {
+	parsedIP := net.ParseIP(ip)
+	return parsedIP != nil && parsedIP.To4() == nil
 }

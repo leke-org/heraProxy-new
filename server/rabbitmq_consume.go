@@ -30,6 +30,7 @@ const (
 	AuthEventIpv6BanUserDataBatch    = 10
 	AuthEventAddShadowSocksData      = 11
 	AuthEventDeleteShadowSocksData   = 12
+	AuthEventIpv6SEOData             = 13
 )
 
 func (m *manager) runRabbitmqConsume(ctx context.Context) {
@@ -112,6 +113,8 @@ func (m *manager) runRabbitmqAuthEventConsumeAction(ctx context.Context, body []
 		err = m.handlerAuthEventAddShadowSocksData(ctx, authEvent.GetShadowSocksData())
 	case AuthEventDeleteShadowSocksData:
 		err = m.handlerAuthEventDeleteShadowSocksData(ctx, authEvent.GetShadowSocksData())
+	case AuthEventIpv6SEOData:
+		err = m.handlerAuthEventIpv6SEOData(ctx, authEvent.GetIpv6GeoInfo())
 	}
 	return err
 }
@@ -429,6 +432,32 @@ func (m *manager) handlerAuthEventDeleteShadowSocksData(ctx context.Context, dat
 		return err
 	}
 	log.Info("[rabbitmq_consume] rabbitmq DeleteShadowSocksData 成功", zap.Any("ip", data.Ip))
+	return nil
+}
+
+func (m *manager) handlerAuthEventIpv6SEOData(ctx context.Context, data *protobuf.Ipv6GEOInfo) error {
+	if data == nil {
+		log.Error("[rabbitmq_authEvent_consume] handlerAuthEventIpv6SEOData Ipv6GEOInfo is nil !")
+		return errors.New("authInfo is nil")
+	}
+	if len(data.CitySeg) <= 0 {
+		log.Error("[rabbitmq_authEvent_consume] handlerAuthEventIpv6SEOData Ipv6GEOInfo.CitySeg is empty !")
+		return errors.New("Ipv6GEOInfo.CitySeg is empty")
+	}
+
+	pipe := common.GetRedisDB().Pipeline()
+	for k, v := range data.CitySeg {
+		pipe.Set(ctx, CitySegPrefix+k, v, 0)
+		pipe.SAdd(ctx, AllCitySegSetPrefix, v)
+	}
+
+	_, err := pipe.Exec(ctx)
+	if err != nil {
+		log.Error("[rabbitmq_authEvent_consume] handlerAuthEventIpv6SEOData pipe.Exec err !", zap.Error(err))
+		return err
+	}
+
+	log.Info("[rabbitmq_consume] handlerAuthEventIpv6SEOData 成功")
 	return nil
 }
 

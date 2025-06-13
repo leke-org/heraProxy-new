@@ -36,6 +36,7 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 
 	proxyServerConn := conn.LocalAddr().(*net.TCPAddr)
 	proxyServerIpStr := proxyServerConn.IP.String()
+	peerIp := conn.RemoteAddr().(*net.TCPAddr).IP.String()
 	targetHost := req.Host
 	ipAndTarget := fmt.Sprintf("%s-%s", proxyServerIpStr, targetHost)
 
@@ -60,7 +61,7 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 
 	proxyUserName := userPasswdPair[0]
 	proxyPassword := userPasswdPair[1]
-	if _, err := m.auth.Valid(ctx, proxyUserName, proxyPassword, proxyServerIpStr); err != nil {
+	if _, err := m.auth.Valid(ctx, proxyUserName, proxyPassword, proxyServerIpStr, peerIp); err != nil {
 		log.Error("[tcp_conn_handler] http代理鉴权失败", zap.Error(err))
 		if _, err = conn.Write([]byte("HTTP/1.1 407 Proxy Authorization Required\r\nProxy-Authenticate: Basic realm=\"Secure Proxys\"\r\n\r\n")); err != nil {
 			return
