@@ -2,11 +2,13 @@ package tracker
 
 import (
 	"fmt"
-	"github.com/jellydator/ttlcache/v3"
 	"log"
-	util "proxy_server/utils"
 	"sync/atomic"
 	"time"
+
+	"github.com/jellydator/ttlcache/v3"
+
+	util "proxy_server/utils"
 )
 
 const (
@@ -41,7 +43,6 @@ type DialFailTracker struct {
 }
 
 func NewDialFailTracker() *DialFailTracker {
-
 	dialFailCache := ttlcache.New[string, *DialFailStats](
 		ttlcache.WithTTL[string, *DialFailStats](dialFailCacheTTL),
 	)
@@ -75,7 +76,6 @@ func (dt *DialFailTracker) IsBlacklisted(ipAndTarget string) bool {
 
 // 记录tcp拨号失败连接和对应的目标网址
 func (dt *DialFailTracker) RecordDialFailConnection(ipAndTarget string) {
-
 	exist := dt.blacklist.Get(ipAndTarget)
 	if exist != nil {
 		return

@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"proxy_server/config"
-	"proxy_server/utils/tracker"
 	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"proxy_server/config"
+	"proxy_server/utils/tracker"
 
 	"github.com/orcaman/concurrent-map/v2"
 	"github.com/spf13/viper"
@@ -46,20 +47,21 @@ var newManager = sync.OnceValue(func() *manager {
 // manager 结构体管理整个代理服务的核心组件
 type manager struct {
 	protobuf.UnimplementedAuthServer
-	tcm                            *taskConsumerManager.Manager // 任务调度管理器
-	tcpListener                    map[string]net.Listener
-	shadowSocksListener            net.Listener
-	grpcServer                     *grpc.Server
-	grpcListener                   net.Listener
-	auth                           Auth
-	isRun                          atomic.Bool
-	bytePool                       sync.Pool
-	ipConnCountMap                 cmap.ConcurrentMap[string, *IpConnCountMapData]
-	userCtxMap                     cmap.ConcurrentMap[string, *connContext]
-	nacosConfig                    *NacosConfig
-	nacosConfigMu                  sync.RWMutex
-	viperClient                    *viper.Viper
-	blackMap                       atomic.Pointer[map[string]struct{}]
+	tcm                 *taskConsumerManager.Manager // 任务调度管理器
+	tcpListener         map[string]net.Listener
+	shadowSocksListener net.Listener
+	grpcServer          *grpc.Server
+	grpcListener        net.Listener
+	auth                Auth
+	isRun               atomic.Bool
+	bytePool            sync.Pool
+	ipConnCountMap      cmap.ConcurrentMap[string, *IpConnCountMapData]
+	userCtxMap          cmap.ConcurrentMap[string, *connContext]
+	nacosConfig         *NacosConfig
+	nacosConfigMu       sync.RWMutex
+	viperClient         *viper.Viper
+	//	blackMap                       atomic.Pointer[map[string]struct{}]
+	blackMap                       atomic.Pointer[[]string]
 	rabbitmqSendQueueSlices        []Queue.Queue[*rabbitMQ.RabbitMqData]
 	rabbitmqSendQueueSlicesCounter atomic.Uint64
 	rabbitmqSendQueueDone          chan struct{}
@@ -193,12 +195,8 @@ func (m *manager) CloseUserConnections(k string) error {
 	return fmt.Errorf("CloseUserConnections userCtxMap %s 不存在", k)
 }
 
-func (m *manager) SetBlackMap(bm map[string]struct{}) {
+func (m *manager) SetBlackMap(bm []string) {
 	m.blackMap.Store(&bm)
-}
-
-func (m *manager) GetBlackMap() *map[string]struct{} {
-	return m.blackMap.Load()
 }
 
 func (m *manager) IsInBlacklist(d string) (string, bool) {
@@ -206,14 +204,9 @@ func (m *manager) IsInBlacklist(d string) (string, bool) {
 	if bm == nil {
 		return "", false
 	}
-	blackMap := *bm
+	black := *bm
 
-	_, ok := blackMap[d]
-	if ok {
-		return d, true
-	}
-
-	for vv := range blackMap {
+	for _, vv := range black {
 		if strings.Contains(d, vv) {
 			return vv, true
 		}

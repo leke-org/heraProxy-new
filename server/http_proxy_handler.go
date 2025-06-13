@@ -155,7 +155,7 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 
 	}
 
-	//key := fmt.Sprintf("%s:%s", proxyUserName, proxyServerIpStr)
+	// key := fmt.Sprintf("%s:%s", proxyUserName, proxyServerIpStr)
 	key := proxyUserName
 	connCtx := m.addUserConnection(key)
 	action := connCtx.a
@@ -191,7 +191,6 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 				m.ReportAccessLogToInfluxDB(proxyUserName, address, proxyServerConn.String())
 			}
 		}
-
 	}()
 
 	///域名为空，并且使用CONNECT

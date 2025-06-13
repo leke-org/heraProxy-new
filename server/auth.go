@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/jellydator/ttlcache/v3"
 	"google.golang.org/protobuf/proto"
-	"time"
 
 	"proxy_server/common"
 	"proxy_server/protobuf"
@@ -39,7 +40,7 @@ func NewIpv4Auth() *Ipv4Auth {
 		ttlcache.WithTTL[string, string](AuthTtl*time.Second),
 		ttlcache.WithDisableTouchOnHit[string, string](), // 不自动延期
 	)
-	go r.cache.Start() //开始自动删除过期项目
+	go r.cache.Start() // 开始自动删除过期项目
 	go r.shadowSocksCache.Start()
 	return r
 }
@@ -50,7 +51,7 @@ func NewIpv6Auth() *Ipv6Auth {
 		ttlcache.WithTTL[string, *protobuf.Ipv6AuthInfo](AuthTtl*time.Second),
 		ttlcache.WithDisableTouchOnHit[string, *protobuf.Ipv6AuthInfo](), // 不自动延期
 	)
-	go r.cache.Start() //开始自动删除过期项目
+	go r.cache.Start() // 开始自动删除过期项目
 	return r
 }
 
@@ -112,7 +113,6 @@ func (a *Ipv6Auth) Valid(ctx context.Context, username, password, ip string) (ex
 		str, err := common.GetRedisDB().Get(ctx, storeKey).Result()
 		if err != nil {
 			resErr = err
-
 		} else {
 			authInfo = &protobuf.Ipv6AuthInfo{}
 			err := proto.Unmarshal([]byte(str), authInfo)
@@ -229,7 +229,6 @@ func (a *Ipv4Auth) ValidShadowSocks(ipAddr string) (password string, resErr erro
 	}
 
 	if password != "" {
-
 		if isTouch {
 			a.shadowSocksCache.Set(storeKey, password, ttlcache.DefaultTTL)
 		}

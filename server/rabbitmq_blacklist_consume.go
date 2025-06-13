@@ -84,11 +84,5 @@ func (m *manager) runRabbitmqBlacklistConsumeAction(body []byte) {
 		return
 	}
 
-	blackMapTemp := map[string]struct{}{}
-
-	for _, v := range blacklistMsg.Blacklist {
-		blackMapTemp[v] = struct{}{}
-	}
-
-	m.SetBlackMap(blackMapTemp)
+	m.SetBlackMap(blacklistMsg.Blacklist)
 }

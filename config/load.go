@@ -2,9 +2,10 @@ package config
 
 import (
 	"fmt"
+	"sync/atomic"
+
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
-	"sync/atomic"
 )
 
 var confDataInstancePointer atomic.Pointer[confData]

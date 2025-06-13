@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	"go.uber.org/zap" // 高性能日志库
 	"google.golang.org/protobuf/proto"
 	"proxy_server/common"
@@ -12,8 +15,6 @@ import (
 	"proxy_server/log"
 	"proxy_server/protobuf"
 	"proxy_server/utils/rabbitMQ"
-	"strings"
-	"time"
 )
 
 const (
@@ -32,7 +33,7 @@ const (
 )
 
 func (m *manager) runRabbitmqConsume(ctx context.Context) {
-	consumeBlacklist := &rabbitMQ.ConsumeReceive{ //黑名单消费者
+	consumeBlacklist := &rabbitMQ.ConsumeReceive{ // 黑名单消费者
 		ExchangeName: config.GetConf().Rabbitmq.BlacklistExchange, // 交换机名称
 		ExchangeType: rabbitMQ.EXCHANGE_TYPE_FANOUT,
 		Route:        "",
@@ -49,8 +50,8 @@ func (m *manager) runRabbitmqConsume(ctx context.Context) {
 		},
 	}
 
-	consumeAuthEvent := &rabbitMQ.ConsumeReceive{ //黑名单消费者
-		//ExchangeName: config.GetConf().Rabbitmq.AuthInfoExchange, // 交换机名称
+	consumeAuthEvent := &rabbitMQ.ConsumeReceive{ // 黑名单消费者
+		// ExchangeName: config.GetConf().Rabbitmq.AuthInfoExchange, // 交换机名称
 		ExchangeType: rabbitMQ.EXCHANGE_TYPE_DIRECT,
 		Route:        "",
 		QueueName:    "authEventMsg_" + config.GetConf().LocalIp + "_" + config.GetConf().ProcessName,

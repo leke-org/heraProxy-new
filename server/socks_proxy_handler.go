@@ -24,7 +24,7 @@ import (
 
 func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 	// 读取账号密码
-	//var user, pwd string
+	// var user, pwd string
 	user, pwd, err := socks5.GetUserPassword(conn)
 	if err != nil {
 		log.Error("[socks_proxy_handler] 读取账号密码错误", zap.Error(err))
@@ -142,7 +142,7 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 		return
 	}
 
-	//key := fmt.Sprintf("%s:%s", user, proxyServerIpStr)
+	// key := fmt.Sprintf("%s:%s", user, proxyServerIpStr)
 	key := user
 	connCtx := m.addUserConnection(key)
 	action := connCtx.a
@@ -176,7 +176,6 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 				m.ReportAccessLogToInfluxDB(user, destAddr.Address(), proxyServerConn.String())
 			}
 		}
-
 	}()
 
 	///域名为空，并且使用CONNECT

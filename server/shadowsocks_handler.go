@@ -6,21 +6,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/shadowsocks/go-shadowsocks2/core"
-	"github.com/shadowsocks/go-shadowsocks2/socks"
-	"go.uber.org/zap"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
-	"proxy_server/log"
-	"proxy_server/server/sniffing"
-	"proxy_server/server/sniffing/tls"
-	util "proxy_server/utils"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/shadowsocks/go-shadowsocks2/core"
+	"github.com/shadowsocks/go-shadowsocks2/socks"
+	"go.uber.org/zap"
+
+	"proxy_server/log"
+	"proxy_server/server/sniffing"
+	"proxy_server/server/sniffing/tls"
+	util "proxy_server/utils"
 )
 
 const CipherType = "AES-128-GCM"
@@ -143,7 +145,6 @@ func (m *manager) runShadowSocks(ctx context.Context, conn net.Conn) {
 				m.ReportAccessLogToInfluxDB(user, tgt.String(), ip)
 			}
 		}
-
 	}()
 
 	///域名为空，并且使用CONNECT

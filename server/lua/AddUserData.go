@@ -2,12 +2,12 @@ package lua
 
 import (
 	"context"
+	"sync"
 
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"proxy_server/common"
 	"proxy_server/log"
-	"sync"
 )
 
 const AddUserDataLuaScript = `
@@ -38,8 +38,7 @@ return 1
 // 	AddUserDataLuaScriptShaCode = sha
 // }
 
-
-var AddUserDataLuaScriptShaCode = sync. OnceValue[string](func()string{
+var AddUserDataLuaScriptShaCode = sync.OnceValue[string](func() string {
 	// 加载 Lua 脚本
 	script := redis.NewScript(AddUserDataLuaScript)
 	sha, err := script.Load(context.Background(), common.GetRedisDB()).Result()
@@ -47,4 +46,4 @@ var AddUserDataLuaScriptShaCode = sync. OnceValue[string](func()string{
 		log.Panic("[lua] 加载AddUserDataLuaScript失败", zap.Error(err))
 	}
 	return sha
-})  
+})
