@@ -37,18 +37,6 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 	proxyServerConn := conn.LocalAddr().(*net.TCPAddr)
 	proxyServerIpStr := proxyServerConn.IP.String()
 	peerIp := conn.RemoteAddr().(*net.TCPAddr).IP.String()
-	targetHost := req.Host
-	ipAndTarget := fmt.Sprintf("%s-%s", proxyServerIpStr, targetHost)
-
-	in := m.IpAndTargetIsInBlacklist(ipAndTarget)
-	if in {
-		msg := fmt.Sprintf("ip[%s]Andserver:[%s] in black list,unable to access!", proxyServerIpStr, targetHost)
-		log.Error("[tcp_conn_handler] " + msg)
-		if _, err = conn.Write([]byte("HTTP/1.1 503 Service Unavailable\r\n\r\n")); err != nil {
-			return
-		}
-		return
-	}
 
 	userPasswdPair := strings.Split(string(authData), ":")
 	if len(userPasswdPair) != 2 {
@@ -61,7 +49,9 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 
 	proxyUserName := userPasswdPair[0]
 	proxyPassword := userPasswdPair[1]
-	if _, err := m.auth.Valid(ctx, proxyUserName, proxyPassword, proxyServerIpStr, peerIp); err != nil {
+	exitIpStr := ""
+	exitIpStr, err = m.auth.Valid(ctx, proxyUserName, proxyPassword, proxyServerIpStr, peerIp)
+	if err != nil {
 		log.Error("[tcp_conn_handler] http代理鉴权失败", zap.Error(err))
 		if _, err = conn.Write([]byte("HTTP/1.1 407 Proxy Authorization Required\r\nProxy-Authenticate: Basic realm=\"Secure Proxys\"\r\n\r\n")); err != nil {
 			return
@@ -69,11 +59,25 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 		return
 	}
 
-	if ok, ipCount := m.AddIpConnCount(proxyServerIpStr); ok {
-		defer m.ReduceIpConnCount(proxyServerIpStr)
+	exitIp := net.ParseIP(exitIpStr)
+
+	targetHost := req.Host
+	ipAndTarget := fmt.Sprintf("%s-%s", exitIpStr, targetHost)
+
+	in := m.IpAndTargetIsInBlacklist(ipAndTarget)
+	if in {
+		msg := fmt.Sprintf("ip[%s]Andserver:[%s] in black list,unable to access!", exitIpStr, targetHost)
+		log.Error("[tcp_conn_handler] " + msg)
+		if _, err = conn.Write([]byte("HTTP/1.1 503 Service Unavailable\r\n\r\n")); err != nil {
+			return
+		}
+		return
+	}
+	if ok, ipCount := m.AddIpConnCount(exitIpStr); ok {
+		defer m.ReduceIpConnCount(exitIpStr)
 	} else {
 		///ip的连接数到达上限
-		log.Error("[tcp_conn_handler] ip连接数到达上线", zap.Any("ip", proxyServerIpStr), zap.Any("user", proxyUserName), zap.Any("连接数", ipCount))
+		log.Error("[tcp_conn_handler] ip连接数到达上线", zap.Any("ip", exitIpStr), zap.Any("user", proxyUserName), zap.Any("连接数", ipCount))
 		if _, err = conn.Write([]byte("HTTP/1.1 503 Service Unavailable\r\n\r\n")); err != nil {
 			return
 		}
@@ -96,8 +100,8 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 	domain := regexpDomain(address)
 	if domain != "" {
 		if black, in := m.IsInBlacklist(domain); in {
-			m.SendBlackListAccessLogMessageData(proxyUserName, proxyPassword, black, 1, proxyUserName, proxyServerIpStr)
-			log.Error("[tcp_conn_handler] 黑名单", zap.Any("domain", domain), zap.Any("local_ip", proxyServerIpStr), zap.Any("target_addr", address), zap.Any("user", proxyUserName))
+			m.SendBlackListAccessLogMessageData(proxyUserName, proxyPassword, black, 1, proxyUserName, exitIpStr)
+			log.Error("[tcp_conn_handler] 黑名单", zap.Any("domain", domain), zap.Any("local_ip", exitIpStr), zap.Any("target_addr", address), zap.Any("user", proxyUserName))
 			if _, err = conn.Write([]byte("HTTP/1.1 503 Service Unavailable\r\n\r\n")); err != nil {
 				return
 			}
@@ -109,14 +113,14 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 	domainPointer.Store(&domain)
 
 	var target net.Conn
-	target, err = DialContext(ctx, "tcp", address, time.Second*10, proxyServerConn.IP, 0)
+	target, err = DialContext(ctx, "tcp", address, time.Second*10, exitIp, 0)
 	if err != nil {
 		var netErr net.Error
 		if errors.As(err, &netErr) && netErr.Timeout() {
 			m.dialFailTracker.RecordDialFailConnection(ipAndTarget)
-			log.Error("[tcp_conn_handler] tcp dial target timeout!", zap.Any("local_ip", proxyServerIpStr), zap.Any("target_addr", address), zap.Any("user", proxyUserName))
+			log.Error("[tcp_conn_handler] tcp dial target timeout!", zap.Any("local_ip", exitIpStr), zap.Any("target_addr", address), zap.Any("user", proxyUserName))
 		}
-		log.Error("[tcp_conn_handler] 创建目标连接失败", zap.Any("local_ip", proxyServerIpStr), zap.Any("target_addr", address), zap.Any("user", proxyUserName))
+		log.Error("[tcp_conn_handler] 创建目标连接失败", zap.Any("local_ip", exitIpStr), zap.Any("target_addr", address), zap.Any("user", proxyUserName))
 		if _, err = conn.Write([]byte("HTTP/1.1 503 Service Unavailable\r\n\r\n")); err != nil {
 			return
 		}
@@ -183,13 +187,13 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 
 		domain := domainPointer.Load()
 		if domain != nil && *domain != "" {
-			m.ReportAccessLogToInfluxDB(proxyUserName, *domain, proxyServerConn.String())
+			m.ReportAccessLogToInfluxDB(proxyUserName, *domain, exitIpStr)
 		} else {
 			hostArr := strings.Split(address, ":")
 			if cap(hostArr) > 0 {
-				m.ReportAccessLogToInfluxDB(proxyUserName, hostArr[0], proxyServerConn.String())
+				m.ReportAccessLogToInfluxDB(proxyUserName, hostArr[0], exitIpStr)
 			} else {
-				m.ReportAccessLogToInfluxDB(proxyUserName, address, proxyServerConn.String())
+				m.ReportAccessLogToInfluxDB(proxyUserName, address, exitIpStr)
 			}
 		}
 	}()
@@ -277,12 +281,12 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 			domain := domainPointer.Load()
 			if domain != nil && *domain != "" {
 				if black, in := m.IsInBlacklist(*domain); in {
-					m.SendBlackListAccessLogMessageData(proxyUserName, proxyPassword, black, 1, proxyUserName, proxyServerIpStr)
+					m.SendBlackListAccessLogMessageData(proxyUserName, proxyPassword, black, 1, proxyUserName, exitIpStr)
 					log.Error("[tcp_conn_handler] 黑名单定时检测",
 						zap.Any("domain", domain),
 						zap.Error(err),
 						zap.Any("username", proxyUserName),
-						zap.Any("clientAddr", proxyServerIpStr),
+						zap.Any("clientAddr", exitIpStr),
 						zap.Any("target_host", address),
 					)
 
@@ -294,7 +298,7 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 				log.Error("[tcp_conn_handler] conn close!",
 					zap.Error(err),
 					zap.Any("username", proxyUserName),
-					zap.Any("clientAddr", proxyServerIpStr),
+					zap.Any("clientAddr", exitIpStr),
 					zap.Any("target_host", address),
 				)
 			}

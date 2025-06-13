@@ -87,7 +87,11 @@ func RandomIPv6Address(cidr string) (string, error) {
 	return randomIP.String(), nil
 }
 
-func IsIPv6(ip string) bool {
+// ParseIPv6 如果是有效的IPv6地址则返回解析后的IP，否则返回nil
+func ParseIPv6(ip string) net.IP {
 	parsedIP := net.ParseIP(ip)
-	return parsedIP != nil && parsedIP.To4() == nil
+	if parsedIP != nil && parsedIP.To4() == nil {
+		return parsedIP
+	}
+	return nil
 }

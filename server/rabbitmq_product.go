@@ -112,7 +112,7 @@ func (m *manager) ReportAccessLogToInfluxDB(user, domain, ip string) {
 		UserName:  user,
 		Domain:    domain,
 		Ip:        ip,
-		ProxyType: "ipv4",
+		ProxyType: m.mode,
 	}
 	sendBytes, _ := proto.Marshal(&accessLog)
 	m.SendAccessLogMessageToInfluxDB(sendBytes)

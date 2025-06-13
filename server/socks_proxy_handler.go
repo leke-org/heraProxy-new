@@ -9,7 +9,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	util "proxy_server/utils"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -37,24 +36,30 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 
 	proxyServerConn := conn.LocalAddr().(*net.TCPAddr)
 	proxyServerIpStr := proxyServerConn.IP.String()
-	proxyServerIpByte := proxyServerConn.IP.To4()
+	//proxyServerIpByte := proxyServerConn.IP.To4()
 	peerIp := conn.RemoteAddr().(*net.TCPAddr).IP.String()
-	exitIp := ""
+	isIpv4 := false
+	exitIpStr := ""
 
-	exitIp, err = m.auth.Valid(ctx, user, pwd, proxyServerIpStr, peerIp)
+	exitIpStr, err = m.auth.Valid(ctx, user, pwd, proxyServerIpStr, peerIp)
 	if err != nil {
-		log.Error("[socks_proxy_handler] 鉴权失败", zap.Error(err), zap.Any("user", user), zap.Any("pwd", pwd), zap.Any("ip", proxyServerIpStr))
+		log.Error("[socks_proxy_handler] 鉴权失败", zap.Error(err), zap.Any("user", user), zap.Any("pwd", pwd), zap.Any("ip", exitIpStr))
 		if _, err = conn.Write([]byte{socks5.UserAuthVersion, socks5.AuthFailure}); err != nil {
 			return
 		}
 		return
 	}
 
-	if ok, ipCount := m.AddIpConnCount(proxyServerIpStr); ok {
-		defer m.ReduceIpConnCount(proxyServerIpStr)
+	exitIp := net.ParseIP(exitIpStr)
+	if exitIp.To4() != nil {
+		isIpv4 = true
+	}
+
+	if ok, ipCount := m.AddIpConnCount(exitIpStr); ok {
+		defer m.ReduceIpConnCount(exitIpStr)
 	} else {
 		// ip的连接数到达上限
-		log.Error("[socks_proxy_handler] ip连接数达到上限", zap.Any("ip", proxyServerIpStr), zap.Any("连接数", ipCount), zap.Any("user", user))
+		log.Error("[socks_proxy_handler] ip连接数达到上限", zap.Any("ip", exitIpStr), zap.Any("连接数", ipCount), zap.Any("user", user))
 		resp := socks5.ConnectionRefused
 		if err = socks5.SendReply(conn, resp, nil); err != nil {
 			return
@@ -65,7 +70,7 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 
 	///认证成功，返回消息给客户端
 	if _, err = conn.Write([]byte{socks5.UserAuthVersion, socks5.AuthSuccess}); err != nil {
-		log.Error("[socks_proxy_handler] 认证成功，返回消息给客户端失败", zap.Any("ip", proxyServerIpStr), zap.Any("user", user))
+		log.Error("[socks_proxy_handler] 认证成功，返回消息给客户端失败", zap.Any("ip", exitIpStr), zap.Any("user", user))
 		return
 	}
 
@@ -80,10 +85,10 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 		return
 	}
 
-	ipAndTarget := fmt.Sprintf("%s-%s", proxyServerIpStr, destAddr.String())
+	ipAndTarget := fmt.Sprintf("%s-%s", exitIpStr, destAddr.String())
 	in := m.IpAndTargetIsInBlacklist(ipAndTarget)
 	if in {
-		msg := fmt.Sprintf("ip[%s]Andserver:[%s] in black list,unable to access!", proxyServerIpStr, destAddr.String())
+		msg := fmt.Sprintf("ip[%s]Andserver:[%s] in black list,unable to access!", exitIpStr, destAddr.String())
 		log.Error("[socks_proxy_handler] " + msg)
 		if err = socks5.SendReply(conn, socks5.NetworkUnreachable, nil); err != nil {
 			return
@@ -94,8 +99,8 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 	domain := regexpDomain(destAddr.Address())
 	if domain != "" {
 		if black, in := m.IsInBlacklist(domain); in {
-			m.SendBlackListAccessLogMessageData(user, pwd, black, 1, user, proxyServerIpStr)
-			log.Error("[socks_proxy_handler] 黑名单", zap.Any("domain", domain), zap.Any("local_ip", proxyServerIpStr), zap.Any("target_addr", destAddr.Address()), zap.Any("user", user))
+			m.SendBlackListAccessLogMessageData(user, pwd, black, 1, user, exitIpStr)
+			log.Error("[socks_proxy_handler] 黑名单", zap.Any("domain", domain), zap.Any("local_ip", exitIpStr), zap.Any("target_addr", destAddr.Address()), zap.Any("user", user))
 			if err = socks5.SendReply(conn, socks5.HostUnreachable, nil); err != nil {
 				return
 			}
@@ -107,7 +112,7 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 	domainPointer.Store(&domain)
 
 	var target net.Conn
-	target, err = DialContext(ctx, "tcp", destAddr.Address(), time.Second*10, proxyServerIpByte, 0)
+	target, err = DialContext(ctx, "tcp", destAddr.Address(), time.Second*10, exitIp, 0)
 	if err != nil {
 		log.Error("[socks_proxy_handler] DialContext 创建目标连接失败", zap.Error(err))
 		msg := err.Error()
@@ -120,7 +125,7 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 		var netErr net.Error
 		if errors.As(err, &netErr) && netErr.Timeout() {
 			m.dialFailTracker.RecordDialFailConnection(ipAndTarget)
-			log.Error("[socks_proxy_handler] tcp dial target timeout!", zap.Any("local_ip", proxyServerIpStr), zap.Any("target_addr", destAddr.Address()), zap.Any("user", user))
+			log.Error("[socks_proxy_handler] tcp dial target timeout!", zap.Any("local_ip", exitIpStr), zap.Any("target_addr", destAddr.Address()), zap.Any("user", user))
 		}
 		if err = socks5.SendReply(conn, resp, nil); err != nil {
 			return
@@ -129,7 +134,7 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 	}
 	defer target.Close()
 
-	if util.IsIPv6(exitIp) {
+	if !isIpv4 { // 如果不是ipv4，是ipv6
 		//告诉客户端连接目标服务器成功
 		bind := socks5.AddrSpec{IP: net.ParseIP("0.0.0.0"), Port: 0}
 		if err = socks5.SendReply(conn, socks5.SuccessReply, &bind); err != nil {
@@ -140,7 +145,7 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 	clientAddr := conn.RemoteAddr().String()
 	log.Info("[socks_proxy_handler] 创建目标连接成功 ",
 		zap.Any("username", user),
-		zap.Any("s5_proxy_ip", proxyServerIpStr),
+		zap.Any("s5_proxy_ip", exitIpStr),
 		zap.Any("clientAddr", clientAddr),
 		zap.Any("destAddr", destAddr.Address()),
 	)
@@ -178,13 +183,13 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 
 		domain := domainPointer.Load()
 		if domain != nil && *domain != "" {
-			m.ReportAccessLogToInfluxDB(user, *domain, proxyServerConn.String())
+			m.ReportAccessLogToInfluxDB(user, *domain, exitIpStr)
 		} else {
 			hostArr := strings.Split(destAddr.Address(), ":")
 			if cap(hostArr) > 0 {
-				m.ReportAccessLogToInfluxDB(user, hostArr[0], proxyServerConn.String())
+				m.ReportAccessLogToInfluxDB(user, hostArr[0], exitIpStr)
 			} else {
-				m.ReportAccessLogToInfluxDB(user, destAddr.Address(), proxyServerConn.String())
+				m.ReportAccessLogToInfluxDB(user, destAddr.Address(), exitIpStr)
 			}
 		}
 	}()
@@ -272,12 +277,12 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 			domain := domainPointer.Load()
 			if domain != nil && *domain != "" {
 				if black, in := m.IsInBlacklist(*domain); in {
-					m.SendBlackListAccessLogMessageData(user, pwd, black, 1, user, proxyServerIpStr)
+					m.SendBlackListAccessLogMessageData(user, pwd, black, 1, user, exitIpStr)
 					log.Error("[socks_proxy_handler] 黑名单定时检测",
 						zap.Any("domain", domain),
 						zap.Error(err),
 						zap.Any("username", user),
-						zap.Any("clientAddr", proxyServerIpStr),
+						zap.Any("clientAddr", exitIpStr),
 						zap.Any("target_host", destAddr.Address()),
 					)
 
@@ -289,7 +294,7 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 				log.Error("[socks_proxy_handler] conn close!",
 					zap.Error(err),
 					zap.Any("username", user),
-					zap.Any("clientAddr", proxyServerIpStr),
+					zap.Any("clientAddr", exitIpStr),
 					zap.Any("target_host", destAddr.Address()),
 				)
 			}

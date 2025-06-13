@@ -47,6 +47,7 @@ var newManager = sync.OnceValue(func() *manager {
 // manager 结构体管理整个代理服务的核心组件
 type manager struct {
 	protobuf.UnimplementedAuthServer
+	mode                string
 	tcm                 *taskConsumerManager.Manager // 任务调度管理器
 	tcpListener         map[string]net.Listener
 	shadowSocksListener net.Listener
@@ -72,6 +73,7 @@ type manager struct {
 // StartIpv4 启动ipv4代理服务的各个组件
 func (m *manager) StartIpv4() error {
 	m.nacosConfig = &NacosConfig{}
+	m.mode = "ipv4"
 	m.auth = NewIpv4Auth()
 	m.initNacosConf(config.GetConf().Nacos.Ipv4GroupName)
 	m.initIpv4TcpListener()
@@ -90,6 +92,7 @@ func (m *manager) StartIpv4() error {
 // StartIpv6 启动ipv6代理服务的各个组件
 func (m *manager) StartIpv6() error {
 	m.nacosConfig = &NacosConfig{}
+	m.mode = "ipv6"
 	m.auth = NewIpv6Auth()
 	m.initNacosConf(config.GetConf().Nacos.Ipv6GroupName)
 	m.initIpv6TcpListener()
