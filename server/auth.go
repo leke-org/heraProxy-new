@@ -173,7 +173,7 @@ func validDynamicIpv6(ctx context.Context, username, peerIp string) (string, err
 		return "", errors.New("动态ipv6 session or lifeTime 为空")
 	}
 	exitIp, err := common.GetRedisDB().Get(ctx, DynamicIpv6Prefix+session).Result()
-	if err == nil {
+	if err == nil && exitIp != "" {
 		return exitIp, nil
 	}
 
