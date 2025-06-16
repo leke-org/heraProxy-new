@@ -412,7 +412,7 @@ func (m *manager) handlerAuthEventAddShadowSocksData(ctx context.Context, data *
 		log.Error("[rabbitmq_consume] Redis set auth key err", zap.Error(err))
 		return err
 	}
-	log.Info("[rabbitmq_consume] rabbitmq AddShadowSocksData 成功", zap.Any("ip", data.Ip))
+	log.Info("[rabbitmq_consume] rabbitmq AddShadowSocksData 成功", zap.Any("ip", data.Ip), zap.Any("password", data.Password))
 	return nil
 }
 

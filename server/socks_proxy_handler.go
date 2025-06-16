@@ -134,12 +134,16 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 	}
 	defer target.Close()
 
+	var bind socks5.AddrSpec
 	if !isIpv4 { // 如果不是ipv4，是ipv6
-		//告诉客户端连接目标服务器成功
-		bind := socks5.AddrSpec{IP: net.ParseIP("0.0.0.0"), Port: 0}
-		if err = socks5.SendReply(conn, socks5.SuccessReply, &bind); err != nil {
-			return
-		}
+		bind = socks5.AddrSpec{IP: net.ParseIP("0.0.0.0"), Port: 0}
+	} else {
+		local := target.LocalAddr().(*net.TCPAddr)
+		bind = socks5.AddrSpec{IP: local.IP, Port: local.Port}
+	}
+	if err = socks5.SendReply(conn, socks5.SuccessReply, &bind); err != nil {
+		log.Error("[socks_proxy_handler] 应答socks5.SuccessReply失败", zap.Error(err))
+		return
 	}
 
 	clientAddr := conn.RemoteAddr().String()
@@ -149,14 +153,6 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 		zap.Any("clientAddr", clientAddr),
 		zap.Any("destAddr", destAddr.Address()),
 	)
-
-	// 告诉客户端连接目标服务器成功
-	local := target.LocalAddr().(*net.TCPAddr)
-	bind := socks5.AddrSpec{IP: local.IP, Port: local.Port}
-	if err = socks5.SendReply(conn, socks5.SuccessReply, &bind); err != nil {
-		log.Error("[socks_proxy_handler] 应答socks5.SuccessReply失败", zap.Error(err))
-		return
-	}
 
 	// key := fmt.Sprintf("%s:%s", user, proxyServerIpStr)
 	key := user

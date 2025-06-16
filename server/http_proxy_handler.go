@@ -256,6 +256,13 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 
 	}
 
+	log.Info("[socks_proxy_handler] 创建目标连接成功 ",
+		zap.Any("username", proxyUserName),
+		zap.Any("s5_proxy_ip", exitIpStr),
+		zap.Any("clientAddr", peerIp),
+		zap.Any("destAddr", address),
+	)
+
 	wg.Add(2)
 	go func() {
 		defer wg.Done()

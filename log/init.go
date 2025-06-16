@@ -3,6 +3,7 @@ package log
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
@@ -108,15 +109,29 @@ func getWriter(filename string) io.Writer {
 	// demo.log是指向最新日志的链接
 	// 保存7天内的日志，每1小时(整点)分割一次日志
 
+	//hook, err := rotatelogs.New(
+	//	filename+"_%Y-%m-%d.log", // 没有使用go风格反人类的format格式
+	//	rotatelogs.WithLinkName(filename),
+	//	rotatelogs.WithMaxAge(time.Hour*24*3),
+	//	rotatelogs.WithRotationTime(time.Hour),
+	//)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//
+	//return hook
+
+	levelName := filepath.Base(filename) // 获取级别名称（如 info, warn, error）
+	baseDir := filepath.Dir(filename)    // 获取基础目录（如 logs）
+
 	hook, err := rotatelogs.New(
-		filename+"_%Y-%m-%d.log", // 没有使用go风格反人类的format格式
-		rotatelogs.WithLinkName(filename),
+		baseDir+"/%Y-%m-%d/"+levelName+".log",
+		rotatelogs.WithLinkName(baseDir+"/current_"+levelName+".log"), // 简化的软链接
 		rotatelogs.WithMaxAge(time.Hour*24*3),
 		rotatelogs.WithRotationTime(time.Hour),
 	)
 	if err != nil {
 		panic(err)
 	}
-
 	return hook
 }

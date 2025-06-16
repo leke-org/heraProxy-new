@@ -50,7 +50,7 @@ func (m *manager) runShadowSocks(ctx context.Context, conn net.Conn) {
 	// 尝试获取目标地址
 	tgt, errRead := socks.ReadAddr(sConn)
 	if errRead != nil {
-		log.Error("[shadowSocks_handler] failed to get target address!", zap.Error(errRead), zap.Any("ip", conn.RemoteAddr()))
+		log.Error("[shadowSocks_handler] failed to get target address!", zap.Error(errRead), zap.Any("ip", ip), zap.Any("pwd", password))
 		discardConn(conn)
 		return
 	}

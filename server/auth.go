@@ -111,7 +111,7 @@ func (a *Ipv6Auth) Valid(ctx context.Context, username, password, ip, peerIp str
 	if password == "elfproxy_dynamic_ipv6" {
 		return validDynamicIpv6(ctx, username, peerIp)
 	}
-	authInfo := &protobuf.Ipv6AuthInfo{}
+	var authInfo *protobuf.Ipv6AuthInfo
 	storeKey := fmt.Sprint(username, ":Auth")
 	value := a.cache.Get(storeKey)
 	isTouch := true
