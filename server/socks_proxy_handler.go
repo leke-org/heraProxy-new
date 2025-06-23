@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"proxy_server/config"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -160,8 +161,9 @@ func (m *manager) socksTcpConn(ctx context.Context, conn net.Conn) {
 	action := connCtx.a
 	defer m.deleteUserConnection(key, connCtx)
 
-	netConn := newConn(conn, CONN_WRITE_TIME, CONN_READ_TIME)
-	netTarget := newConn(target, CONN_WRITE_TIME, CONN_READ_TIME)
+	conf := config.GetConf()
+	netConn := newConn(conn, conf.ConnWriteTimeout, conf.ConnReadTimeout)
+	netTarget := newConn(target, conf.ConnWriteTimeout, conf.ConnReadTimeout)
 
 	byteChan := make(chan []byte, 1)
 	defer close(byteChan)

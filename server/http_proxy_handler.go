@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"proxy_server/config"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -120,7 +121,7 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 			m.dialFailTracker.RecordDialFailConnection(ipAndTarget)
 			log.Error("[tcp_conn_handler] tcp dial target timeout!", zap.Any("local_ip", exitIpStr), zap.Any("target_addr", address), zap.Any("user", proxyUserName))
 		}
-		log.Error("[tcp_conn_handler] 创建目标连接失败", zap.Any("local_ip", exitIpStr), zap.Any("target_addr", address), zap.Any("user", proxyUserName))
+		log.Error("[tcp_conn_handler] 创建目标连接失败,err:", zap.Error(err), zap.Any("local_ip", exitIpStr), zap.Any("target_addr", address), zap.Any("user", proxyUserName))
 		if _, err = conn.Write([]byte("HTTP/1.1 503 Service Unavailable\r\n\r\n")); err != nil {
 			return
 		}
@@ -168,8 +169,9 @@ func (m *manager) httpTcpConn(ctx context.Context, conn net.Conn, req *http.Requ
 
 	var netConn, netTarget io.ReadWriteCloser
 
-	netConn = newConn(conn, CONN_WRITE_TIME, CONN_READ_TIME)
-	netTarget = newConn(target, CONN_WRITE_TIME, CONN_READ_TIME)
+	conf := config.GetConf()
+	netConn = newConn(conn, conf.ConnWriteTimeout, conf.ConnReadTimeout)
+	netTarget = newConn(target, conf.ConnWriteTimeout, conf.ConnReadTimeout)
 
 	byteChan := make(chan []byte, 1)
 	defer close(byteChan)

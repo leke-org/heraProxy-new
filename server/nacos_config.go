@@ -73,13 +73,10 @@ func (m *manager) runNacosConfServer(ctx context.Context) {
 	defer ticker.Stop()
 
 	for {
-		ticker.Reset(loopTime)
 		select {
 		case <-ctx.Done():
 			return
 		case <-m.nacosRespChan:
-			m.viperClient.WatchRemoteConfigOnChannel()
-			m.viperClient.WatchRemoteConfig()
 			nacosConfig := &NacosConfig{}
 			if err := m.viperClient.Unmarshal(nacosConfig); err == nil {
 				m.setNacosConf(nacosConfig)
@@ -87,8 +84,6 @@ func (m *manager) runNacosConfServer(ctx context.Context) {
 			}
 			fmt.Println(nacosConfig)
 		case <-ticker.C:
-			m.viperClient.WatchRemoteConfigOnChannel()
-			m.viperClient.WatchRemoteConfig()
 			nacosConfig := &NacosConfig{}
 			if err := m.viperClient.Unmarshal(nacosConfig); err == nil {
 				m.setNacosConf(nacosConfig)
@@ -96,13 +91,12 @@ func (m *manager) runNacosConfServer(ctx context.Context) {
 			}
 			fmt.Println(nacosConfig)
 		}
-
 	}
 }
 
 func (m *manager) setNacosConf(c *NacosConfig) {
-	m.nacosConfigMu.RLock()
-	defer m.nacosConfigMu.RUnlock()
+	m.nacosConfigMu.Lock()
+	defer m.nacosConfigMu.Unlock()
 	m.nacosConfig = c
 }
 

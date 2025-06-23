@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go.uber.org/zap"
 	"proxy_server/config"
+	"proxy_server/log"
 	util "proxy_server/utils"
 	"slices"
 	"strconv"
@@ -186,6 +188,7 @@ func validDynamicIpv6(ctx context.Context, username, peerIp string) (string, err
 	} else {
 		seg, err = common.GetRedisDB().Get(ctx, CitySegPrefix+city).Result()
 		if err != nil {
+			log.Error("获取城市seg失败----------------------", zap.Any("username", username), zap.Any("city", city))
 			return "", errors.New("动态ipv6 city Seg 获取失败 err:" + err.Error())
 		}
 	}
