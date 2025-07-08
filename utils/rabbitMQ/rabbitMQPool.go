@@ -8,6 +8,8 @@ import (
 	"math"
 	"math/big"
 	"math/rand"
+	"proxy_server/config"
+	util "proxy_server/utils"
 	"strconv"
 	"strings"
 	"sync"
@@ -598,20 +600,53 @@ func rConsume(pool *RabbitPool) {
 *
 重连处理
 */
+//func retryConsume(pool *RabbitPool) {
+//	log(fmt.Sprintf("2秒后开始重试:[%d]", pool.consumeCurrentRetry))
+//	atomic.AddInt32(&pool.consumeCurrentRetry, 1)
+//	time.Sleep(time.Second * 2)
+//	_, err := rConnect(pool, true)
+//	if err != nil {
+//		retryConsume(pool)
+//	} else {
+//		statusLock.Lock()
+//		status = false
+//		statusLock.Unlock()
+//		err = pool.initConnections(false)
+//		if err != nil {
+//			retryConsume(pool)
+//		}
+//		rConsume(pool)
+//	}
+//}
+
+/*
+*
+重连处理
+*/
 func retryConsume(pool *RabbitPool) {
-	log(fmt.Sprintf("2秒后开始重试:[%d]", pool.consumeCurrentRetry))
-	atomic.AddInt32(&pool.consumeCurrentRetry, 1)
-	time.Sleep(time.Second * 2)
-	_, err := rConnect(pool, true)
-	if err != nil {
-		retryConsume(pool)
-	} else {
+	util.SendAlarmToDingTalk(fmt.Sprintf("服务器%s，发生rabbitmq断线，准备尝试重连！", config.GetConf().Nacos.LocalIP))
+	for {
+		log(fmt.Sprintf("2秒后开始重试:[%d]", pool.consumeCurrentRetry))
+		atomic.AddInt32(&pool.consumeCurrentRetry, 1)
+		time.Sleep(time.Second * 2)
+
+		_, err := rConnect(pool, true)
+		if err != nil {
+			continue // 继续重试而不是递归
+		}
+
 		statusLock.Lock()
 		status = false
 		statusLock.Unlock()
-		_ = pool.initConnections(false)
-		rConsume(pool)
+
+		err = pool.initConnections(false)
+		if err != nil {
+			continue // 继续重试而不是递归
+		}
+		break // 成功后退出循环
 	}
+	util.SendAlarmToDingTalk(fmt.Sprintf("服务器%s，rabbitmq断线重连成功！", config.GetConf().Nacos.LocalIP))
+	rConsume(pool)
 }
 
 /*

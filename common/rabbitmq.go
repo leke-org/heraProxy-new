@@ -1,7 +1,8 @@
 package common
 
 import (
-	"fmt"
+	"go.uber.org/zap"
+	"proxy_server/log"
 	"sync"
 
 	"proxy_server/config"
@@ -24,7 +25,8 @@ var GetRabbitMqProductPool = sync.OnceValue[*rabbitMQ.RabbitPool](func() *rabbit
 	//	config.GetConf().Rabbitmq.VirtualHost,
 	//)
 	if err != nil {
-		panic(fmt.Errorf("初始化rabbitmq生产者失败error:%+v", err))
+		log.Error("初始化rabbitmq生产者失败:", zap.Error(err))
+		//panic(fmt.Errorf("初始化rabbitmq生产者失败error:%+v", err))
 	}
 	return pool
 })
@@ -41,7 +43,8 @@ var GetRabbitConsumerPool = sync.OnceValue[*rabbitMQ.RabbitPool](func() *rabbitM
 	//	config.GetConf().Rabbitmq.VirtualHost,
 	//)
 	if err != nil {
-		panic(fmt.Errorf("初始化rabbitmq消费者失败error:%+v", err))
+		log.Error("初始化rabbitmq消费者失败:", zap.Error(err))
+		//panic(fmt.Errorf("初始化rabbitmq消费者失败error:%+v", err))
 	}
 	return pool
 })
