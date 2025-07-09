@@ -624,7 +624,7 @@ func rConsume(pool *RabbitPool) {
 重连处理
 */
 func retryConsume(pool *RabbitPool) {
-	util.SendAlarmToDingTalk(fmt.Sprintf("服务器%s，发生rabbitmq断线，准备尝试重连！", config.GetConf().Nacos.LocalIP))
+	util.SendAlarmToDingTalk(fmt.Sprintf("静态ip转发服务器%s，发生rabbitmq断线，准备尝试重连！", config.GetConf().Nacos.LocalIP))
 	for {
 		log(fmt.Sprintf("2秒后开始重试:[%d]", pool.consumeCurrentRetry))
 		atomic.AddInt32(&pool.consumeCurrentRetry, 1)
