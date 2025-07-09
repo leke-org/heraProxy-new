@@ -15,4 +15,6 @@ type confData struct {
 	ShadowSocksAddress     string           `mapstructure:"shadowsocks_address" json:"shadowsocks_address" yaml:"shadowsocks_address"`
 	ConnReadTimeout        int64            `mapstructure:"conn_read_timeout" json:"conn_read_timeout" yaml:"conn_read_timeout"`
 	ConnWriteTimeout       int64            `mapstructure:"conn_write_timeout" json:"conn_write_timeout" yaml:"conn_write_timeout"`
+	DingtalkAlarmToken     string           `mapstructure:"dingtalk_alarm_token" json:"dingtalk_alarm_token" yaml:"dingtalk_alarm_token"`
+	DingtalkAlarmSecret    string           `mapstructure:"dingtalk_alarm_secret" json:"dingtalk_alarm_secret" yaml:"dingtalk_alarm_secret"`
 }

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"proxy_server/config"
 	"strconv"
 	"strings"
 	"time"
@@ -39,7 +40,7 @@ func init() {
 
 func SendAlarmToDingTalk(content string) {
 	ts, sign := makeSignature()
-	rawUrl := fmt.Sprintf("https://oapi.dingtalk.com/robot/send?access_token=%s&timestamp=%s&sign=%s", TOKEN, ts, sign)
+	rawUrl := fmt.Sprintf("https://oapi.dingtalk.com/robot/send?access_token=%s&timestamp=%s&sign=%s", config.GetConf().DingtalkAlarmToken, ts, sign)
 
 	message := DingTalkMessage{
 		At: struct {
@@ -84,10 +85,10 @@ func SendAlarmToDingTalk(content string) {
 func makeSignature() (string, string) {
 	timestamp := strconv.FormatInt(time.Now().UnixMilli(), 10)
 
-	stringToSign := strings.Join([]string{timestamp, SECRET}, "\n")
+	stringToSign := strings.Join([]string{timestamp, config.GetConf().DingtalkAlarmSecret}, "\n")
 
 	// 创建 HMAC-SHA256
-	h := hmac.New(sha256.New, []byte(SECRET))
+	h := hmac.New(sha256.New, []byte(config.GetConf().DingtalkAlarmSecret))
 	h.Write([]byte(stringToSign))
 	signData := h.Sum(nil)
 
