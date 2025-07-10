@@ -125,10 +125,11 @@ func getWriter(filename string) io.Writer {
 	baseDir := filepath.Dir(filename)    // 获取基础目录（如 logs）
 
 	hook, err := rotatelogs.New(
-		baseDir+"/%Y-%m-%d/"+levelName+".log",
+		baseDir+"/%Y-%m-%d/"+levelName+"_%H.log",                      // 修改文件名格式以支持更频繁的切割
 		rotatelogs.WithLinkName(baseDir+"/current_"+levelName+".log"), // 简化的软链接
 		rotatelogs.WithMaxAge(time.Hour*24*3),
 		rotatelogs.WithRotationTime(time.Hour),
+		rotatelogs.WithRotationSize(50*1024*1024), // 文件大小超过50MB时切割
 	)
 	if err != nil {
 		panic(err)
