@@ -578,6 +578,9 @@ func rDeclare(rconn *rConn, clientType int, channel *rChannel, exChangeName stri
 消费者处理
 */
 func rConsume(pool *RabbitPool) {
+	if len(pool.connections[RABBITMQ_TYPE_CONSUME]) <= 0 {
+		retryConsume(pool)
+	}
 	for _, v := range pool.consumeReceive {
 		go func(pool *RabbitPool, receive *ConsumeReceive) {
 			rListenerConsume(pool, receive)
