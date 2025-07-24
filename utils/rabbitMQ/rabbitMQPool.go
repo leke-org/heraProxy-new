@@ -23,7 +23,7 @@ var ACK_DATA_NIL = errors.New("ack data nil")
 
 const (
 	DEFAULT_MAX_CONNECTION      = 5  // rabbitmq tcp 最大连接数
-	DEFAULT_MAX_CONSUME_CHANNEL = 25 // 最大消费channel数(一般指消费者)
+	DEFAULT_MAX_CONSUME_CHANNEL = 5  // 最大消费channel数(一般指消费者)
 	DEFAULT_MAX_CONSUME_RETRY   = 10 // 消费者断线重连最大次数
 	DEFAULT_PUSH_MAX_TIME       = 99 // 最大重发次数
 
@@ -550,14 +550,15 @@ func rDeclare(rconn *rConn, clientType int, channel *rChannel, exChangeName stri
 		argsQue := make(map[string]interface{})
 		if isDeadQueue {
 			argsQue["expires"] = 172800000
+			argsQue["x-message-ttl"] = 5000
 			argsQue["x-dead-letter-exchange"] = oldExChangeName
 			oldRoute = strings.TrimSpace(oldRoute)
 			if len(oldRoute) > 0 {
 				argsQue["x-dead-letter-routing-key"] = oldRoute
 			}
 		}
-		argsQue["x-message-ttl"] = 5000
-		queue, err := newChannel.QueueDeclare(queueName, false, true, false, false, argsQue)
+		argsQue["x-message-ttl"] = 172800000
+		queue, err := newChannel.QueueDeclare(queueName, false, false, false, false, argsQue)
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("MQ注册队列失败:%s", err))
 		}
@@ -638,14 +639,15 @@ func retryConsume(pool *RabbitPool) {
 			continue // 继续重试而不是递归
 		}
 
-		statusLock.Lock()
-		status = false
-		statusLock.Unlock()
-
 		err = pool.initConnections(false)
 		if err != nil {
 			continue // 继续重试而不是递归
 		}
+
+		statusLock.Lock()
+		status = false
+		statusLock.Unlock()
+
 		break // 成功后退出循环
 	}
 	util.SendAlarmToDingTalk(fmt.Sprintf("服务器%s，rabbitmq断线重连成功！", config.GetConf().Nacos.LocalIP))
@@ -658,11 +660,23 @@ func retryConsume(pool *RabbitPool) {
 */
 func rListenerConsume(pool *RabbitPool, receive *ConsumeReceive) {
 	var i int32 = 0
+	var failCount int32 = 0
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(int(pool.consumeMaxChannel))
 	for i = 0; i < pool.consumeMaxChannel; i++ {
 		itemI := i
 		go func(num int32, p *RabbitPool, r *ConsumeReceive) {
-			consumeTask(num, p, r)
+			err := consumeTask(num, p, r)
+			if err != nil {
+				failCount++
+			}
+			waitGroup.Done()
 		}(itemI, pool, receive)
+	}
+	waitGroup.Wait()
+	if failCount >= pool.consumeMaxChannel {
+		setConnectError(pool, 501, "创建通道/声明交换机/声明队列失败")
+		util.SendAlarmToDingTalk(fmt.Sprintf("静态ip转发服务器%s，创建通道/声明交换机/声明队列失败！", config.GetConf().Nacos.LocalIP))
 	}
 }
 
@@ -688,7 +702,7 @@ func setConnectError(pool *RabbitPool, code int, message string) {
 消费任务
 */
 
-func consumeTask(num int32, pool *RabbitPool, receive *ConsumeReceive) {
+func consumeTask(num int32, pool *RabbitPool, receive *ConsumeReceive) error {
 	// 获取请求连接
 	closeFlag := false
 	pool.connectionLock.Lock()
@@ -700,7 +714,7 @@ func consumeTask(num int32, pool *RabbitPool, receive *ConsumeReceive) {
 		if receive.EventFail != nil {
 			receive.EventFail(RCODE_CHANNEL_CREATE_ERROR, NewRabbitMqError(RCODE_CHANNEL_CREATE_ERROR, "channel create error", err.Error()), nil)
 		}
-		return
+		return err
 	}
 	defer func() {
 		_ = channel.Close()
@@ -730,7 +744,7 @@ func consumeTask(num int32, pool *RabbitPool, receive *ConsumeReceive) {
 				if receive.EventFail != nil {
 					receive.EventFail(RCODE_CHANNEL_CREATE_ERROR, NewRabbitMqError(RCODE_CHANNEL_CREATE_ERROR, "dead channel create error", err.Error()), nil)
 				}
-				return
+				return err
 			}
 			defer func() {
 				_ = deadChannel.Close()
@@ -741,9 +755,9 @@ func consumeTask(num int32, pool *RabbitPool, receive *ConsumeReceive) {
 	}
 	if err != nil {
 		if receive.EventFail != nil {
-			receive.EventFail(RCODE_CHANNEL_QUEUE_EXCHANGE_BIND_ERROR, NewRabbitMqError(RCODE_CHANNEL_QUEUE_EXCHANGE_BIND_ERROR, "交换机/队列/绑定失败", err.Error()), nil)
+			receive.EventFail(RCODE_CHANNEL_QUEUE_EXCHANGE_BIND_ERROR, NewRabbitMqError(RCODE_CHANNEL_QUEUE_EXCHANGE_BIND_ERROR, "交换机/队列/绑定失败:"+err.Error(), err.Error()), nil)
 		}
-		return
+		return err
 	}
 	// 获取消费通道
 	// 确保rabbitmq会一个一个发消息
@@ -761,7 +775,7 @@ func consumeTask(num int32, pool *RabbitPool, receive *ConsumeReceive) {
 		if receive.EventFail != nil {
 			receive.EventFail(RCODE_GET_CHANNEL_ERROR, NewRabbitMqError(RCODE_GET_CHANNEL_ERROR, fmt.Sprintf("获取队列 %s 的消费通道失败", receive.QueueName), err.Error()), nil)
 		}
-		return
+		return err
 	}
 
 	// 一旦消费者的channel有错误，产生一个amqp.Error，channel监听并捕捉到这个错误
@@ -829,6 +843,7 @@ func consumeTask(num int32, pool *RabbitPool, receive *ConsumeReceive) {
 			break
 		}
 	}
+	return nil
 }
 
 /*
